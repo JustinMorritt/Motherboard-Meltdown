@@ -192,6 +192,16 @@ void Camera::Pitch(float angle)
 	XMStoreFloat3(&mLook, XMVector3TransformNormal(XMLoadFloat3(&mLook), R));
 }
 
+void Camera::Roll(float angle)
+{
+	//Rotate Up and Right on Look Vector
+
+	XMMATRIX R = XMMatrixRotationAxis(XMLoadFloat3(&mLook), angle);
+
+	XMStoreFloat3(&mUp, XMVector3TransformNormal(XMLoadFloat3(&mUp), R));
+	XMStoreFloat3(&mRight, XMVector3TransformNormal(XMLoadFloat3(&mRight), R));
+}
+
 void Camera::RotateY(float angle)
 {
 	// Rotate the basis vectors about the world y-axis.

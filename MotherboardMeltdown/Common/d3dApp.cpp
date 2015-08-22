@@ -325,13 +325,8 @@ LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	case WM_MOUSEMOVE:
 		OnMouseMove(wParam, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
 		return 0;
-	case WM_KEYDOWN:
-		OnKeyDown(wParam);
-		switch (wParam)
-		{
-		case 0x57:TurnOnWireFrame(); break;			// W KEY
-		case 0x43:TurnOnBackFaceCulling(); break;	// C KEY
-		}
+	case WM_KEYUP:
+		OnKeyUP(wParam);
 		break;
 	}
 
