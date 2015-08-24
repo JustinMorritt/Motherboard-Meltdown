@@ -26,8 +26,8 @@ D3DApp::D3DApp(HINSTANCE hInstance)
 	: mhAppInst(hInstance),
 	mMainWndCaption(L"D3D11 Application"),
 	md3dDriverType(D3D_DRIVER_TYPE_HARDWARE),
-	mClientWidth(800),
-	mClientHeight(600),
+	mClientWidth(1280),
+	mClientHeight(800),
 	mEnable4xMsaa(false),
 	mhMainWnd(0),
 	mAppPaused(false),
@@ -35,9 +35,9 @@ D3DApp::D3DApp(HINSTANCE hInstance)
 	mMaximized(false),
 	mResizing(false),
 	m4xMsaaQuality(0),
+	mFullScreen(false),
+	mCursorOn(true),
 
-	mWireOn(false),
-	mCullOn(false),
 	m_rasterState(0),
  
 	md3dDevice(0),
@@ -57,6 +57,10 @@ D3DApp::D3DApp(HINSTANCE hInstance)
 
 D3DApp::~D3DApp()
 {
+	if (mSwapChain)
+	{
+		mSwapChain->SetFullscreenState(false, NULL);
+	}
 	ReleaseCOM(mRenderTargetView);
 	ReleaseCOM(mDepthStencilView);
 	ReleaseCOM(mSwapChain);
@@ -122,8 +126,16 @@ int D3DApp::Run()
 
 bool D3DApp::Init()
 {
+
 	if(!InitMainWindow())
 		return false;
+
+	if (!InitGraphicsCard())
+	{
+		OutputDebugString(L"fAILED TO FIND MONITOR / GRAPHICS CARD"); return false;
+		return false;
+	}
+		
 
 	if(!InitDirect3D())
 		return false;
@@ -146,8 +158,16 @@ void D3DApp::OnResize()
 
 
 	// Resize the swap chain and recreate the render target view.
+	if (!mFullScreen)
+	{
+		HR(mSwapChain->ResizeBuffers(1, mClientWidth, mClientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 0));
+	}
+	else
+	{
+		HR(mSwapChain->ResizeBuffers(1, m_ScreenWidth, m_ScreenHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 0));
+	}
 
-	HR(mSwapChain->ResizeBuffers(1, mClientWidth, mClientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 0));
+	
 	ID3D11Texture2D* backBuffer;
 	HR(mSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&backBuffer)));
 	HR(md3dDevice->CreateRenderTargetView(backBuffer, 0, &mRenderTargetView));
@@ -204,11 +224,18 @@ void D3DApp::OnResize()
  
 LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
+	if (msg == WM_SETCURSOR && LOWORD(lParam) == HTCLIENT && !mCursorOn)
+	{
+		SetCursor(NULL);
+
+		return TRUE;
+	}
 	switch( msg )
 	{
 	// WM_ACTIVATE is sent when the window is activated or deactivated.  
 	// We pause the game when the window is deactivated and unpause it 
 	// when it becomes active.  
+
 	case WM_ACTIVATE:
 		if( LOWORD(wParam) == WA_INACTIVE )
 		{
@@ -231,12 +258,14 @@ LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		{
 			if( wParam == SIZE_MINIMIZED )
 			{
+				if (mFullScreen)mSwapChain->SetFullscreenState(false, NULL);
 				mAppPaused = true;
 				mMinimized = true;
 				mMaximized = false;
 			}
 			else if( wParam == SIZE_MAXIMIZED )
 			{
+				if (mFullScreen)mSwapChain->SetFullscreenState(true, NULL);
 				mAppPaused = false;
 				mMinimized = false;
 				mMaximized = true;
@@ -248,6 +277,7 @@ LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 				// Restoring from minimized state?
 				if( mMinimized )
 				{
+					if(mFullScreen)mSwapChain->SetFullscreenState(true, NULL);
 					mAppPaused = false;
 					mMinimized = false;
 					OnResize();
@@ -327,6 +357,11 @@ LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 		return 0;
 	case WM_KEYUP:
 		OnKeyUP(wParam);
+		if (wParam == VK_ESCAPE)
+		{
+			PostQuitMessage(0);
+			return 0;
+		}
 		break;
 	}
 
@@ -334,101 +369,17 @@ LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 }
 
 
-void D3DApp::TurnOnWireFrame()
-{
-	D3D11_RASTERIZER_DESC rasterDesc;
-	
 
-	ZeroMemory(&rasterDesc, sizeof(rasterDesc));
-	//set up description
-	rasterDesc.AntialiasedLineEnable = false;
-	if (mCullOn)
-	{
-		rasterDesc.CullMode = D3D11_CULL_NONE; //type of culling ...
-	}
-	else
-	{
-		rasterDesc.CullMode = D3D11_CULL_BACK; //type of culling ...
-	}
-	rasterDesc.DepthBias = 0;
-	rasterDesc.DepthBiasClamp = 0.0f;
-	rasterDesc.DepthClipEnable = true;
-	if (!mWireOn)
-	{
-		rasterDesc.FillMode = D3D11_FILL_WIREFRAME; //how you make it wireframe
-		mWireOn = true;
-	}
-	else
-	{
-		rasterDesc.FillMode = D3D11_FILL_SOLID; //how you make it wireframe
-		mWireOn = false;
-	}
-
-
-	rasterDesc.FrontCounterClockwise = false;
-	rasterDesc.MultisampleEnable = false;
-	rasterDesc.ScissorEnable = false;
-	rasterDesc.SlopeScaledDepthBias = 0.0f;
-
-	//create rasterizer state 
-	HR(md3dDevice->CreateRasterizerState(&rasterDesc, &m_rasterState));
-
-
-	//set the rasterizer
-	md3dImmediateContext->RSSetState(m_rasterState);
-
-	
-}
-
-void D3DApp::TurnOnBackFaceCulling()
-{
-	D3D11_RASTERIZER_DESC rasterDesc;
-
-
-	ZeroMemory(&rasterDesc, sizeof(rasterDesc));
-	//set up description
-	rasterDesc.AntialiasedLineEnable = false;
-	if (!mCullOn)
-	{
-		rasterDesc.CullMode = D3D11_CULL_NONE; //type of culling ...
-		mCullOn = true;
-	}
-	else
-	{
-		rasterDesc.CullMode = D3D11_CULL_BACK; //type of culling ...
-		mCullOn = false;
-	}
-
-
-	rasterDesc.DepthBias = 0;
-	rasterDesc.DepthBiasClamp = 0.0f;
-	rasterDesc.DepthClipEnable = true;
-	if (mWireOn)
-	{
-		rasterDesc.FillMode = D3D11_FILL_WIREFRAME; //how you make it wireframe
-	}
-	else
-	{
-		rasterDesc.FillMode = D3D11_FILL_SOLID; //how you make it wireframe
-	}
-
-
-	rasterDesc.FrontCounterClockwise = false;
-	rasterDesc.MultisampleEnable = false;
-	rasterDesc.ScissorEnable = false;
-	rasterDesc.SlopeScaledDepthBias = 0.0f;
-
-	//create rasterizer state 
-	HR(md3dDevice->CreateRasterizerState(&rasterDesc, &m_rasterState));
-
-
-	//set the rasterizer
-	md3dImmediateContext->RSSetState(m_rasterState);
-}
 
 bool D3DApp::InitMainWindow()
 {
+	int msg;
+	msg  = MessageBox(0, L"Full Screen?", L"Motherboard Meltdown!", MB_YESNO);
+	if (msg == 6){ mFullScreen = true; }
+	if (msg == 7){ mFullScreen = false; }
+
 	WNDCLASS wc;
+	
 	wc.style         = CS_HREDRAW | CS_VREDRAW;
 	wc.lpfnWndProc   = MainWndProc; 
 	wc.cbClsExtra    = 0;
@@ -447,13 +398,18 @@ bool D3DApp::InitMainWindow()
 	}
 
 	// Compute window rectangle dimensions based on requested client area dimensions.
-	RECT R = { 0, 0, mClientWidth, mClientHeight };
-    AdjustWindowRect(&R, WS_OVERLAPPEDWINDOW, false);
-	int width  = R.right - R.left;
-	int height = R.bottom - R.top;
+	UINT newWidth = GetSystemMetrics(SM_CXSCREEN);
+	UINT newHeight = GetSystemMetrics(SM_CYSCREEN);
+	m_ScreenWidth = newWidth;
+	m_ScreenHeight = newHeight; //Storing screen dimentions in the app
 
-	mhMainWnd = CreateWindow(L"D3DWndClassName", mMainWndCaption.c_str(), 
-		WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, mhAppInst, 0); 
+	// Compute window rectangle dimensions based on requested client area dimensions.
+	RECT R = { 0, 0, mClientWidth, mClientHeight };
+	AdjustWindowRect(&R, WS_OVERLAPPEDWINDOW, false);
+	int width = R.right - R.left;
+	int height = R.bottom - R.top;
+	mhMainWnd = CreateWindow(L"D3DWndClassName", mMainWndCaption.c_str(), WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, 0, 0, mhAppInst, 0);
+
 	if( !mhMainWnd )
 	{
 		MessageBox(0, L"CreateWindow Failed.", 0, 0);
@@ -462,6 +418,109 @@ bool D3DApp::InitMainWindow()
 
 	ShowWindow(mhMainWnd, SW_SHOW);
 	UpdateWindow(mhMainWnd);
+	SetForegroundWindow(mhMainWnd);
+	SetFocus(mhMainWnd);
+	return true;
+}
+
+bool D3DApp::InitGraphicsCard()
+{
+	HRESULT result;
+	IDXGIFactory* factory;
+	IDXGIAdapter* adapter;
+	IDXGIOutput* adapterOutput;
+	unsigned int numModes = 0;
+	unsigned int numerator = 0;
+	unsigned int denomenator = 0;
+	unsigned int stringLength = 0;
+	DXGI_MODE_DESC* displayModeList;
+	DXGI_ADAPTER_DESC adapterDesc;
+	int error;
+
+	//Create Direct x graphic interface factory
+	result = CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&factory);
+	if (FAILED(result))
+	{
+		return false;
+	}
+
+	//use factory now
+	result = factory->EnumAdapters(0, &adapter);
+	if (FAILED(result)){ return false; }
+
+	//enumerate the primary output (monitor)
+	result = adapter->EnumOutputs(0, &adapterOutput);
+	if (FAILED(result))
+	{
+		return false;
+	}
+
+	//Get the number of modes that fit the DXGI_FORMAT_R8G8B8A8_UNORM display format for the monitor 
+	result = adapterOutput->GetDisplayModeList(DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_ENUM_MODES_INTERLACED, &numModes, NULL);
+	if (FAILED(result))
+	{
+		return false;
+	}
+
+	//Create a list to hold all the modes for the monitor/video card combo
+	displayModeList = new DXGI_MODE_DESC[numModes];
+
+	//fill the list
+	result = adapterOutput->GetDisplayModeList(DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_ENUM_MODES_INTERLACED, &numModes, displayModeList);
+	if (FAILED(result))
+	{
+		return false;
+	}
+
+	//Loop through the whole list finding what one equals screen width / height
+
+	for (int i = 0; i < numModes; ++i)
+	{
+		if (displayModeList[i].Width == (unsigned int)m_ScreenWidth)
+		{
+			if (displayModeList[i].Height == (unsigned int)m_ScreenHeight)
+			{
+				numerator = displayModeList[i].RefreshRate.Numerator;
+				denomenator = displayModeList[i].RefreshRate.Denominator;
+				m_MonitorDenumerator = numerator;
+				m_MonitorNumerator = denomenator;
+			}
+		}
+	}
+
+	if (numerator == 0 && denomenator == 0)
+	{
+		return false;
+	}
+
+	result = adapter->GetDesc(&adapterDesc);
+	if (FAILED(result))
+	{
+		return false;
+	}
+
+	//Store video car memory in MBs
+	m_videoCardMemory = (int)(adapterDesc.DedicatedVideoMemory / 1024 / 1024);
+
+	//Convert the name of the car to a char array
+	error = wcstombs_s(&stringLength, m_pVideoCardDescription, 128, adapterDesc.Description, 128);
+	if (error != 0)
+	{
+		return false;
+	}
+
+		//Release memory 
+	delete[] displayModeList;
+	displayModeList = nullptr;
+
+	adapterOutput->Release();
+	adapterOutput = nullptr;
+	adapter->Release();
+	adapter = nullptr;
+	factory->Release();
+	factory = nullptr;
+
+
 
 	return true;
 }
@@ -510,10 +569,14 @@ bool D3DApp::InitDirect3D()
 	// Fill out a DXGI_SWAP_CHAIN_DESC to describe our swap chain.
 
 	DXGI_SWAP_CHAIN_DESC sd;
-	sd.BufferDesc.Width  = mClientWidth;
+	ZeroMemory(&sd, sizeof(DXGI_SWAP_CHAIN_DESC));
+	sd.BufferDesc.Width = mClientWidth;
 	sd.BufferDesc.Height = mClientHeight;
-	sd.BufferDesc.RefreshRate.Numerator = 60;
-	sd.BufferDesc.RefreshRate.Denominator = 1;
+	sd.Windowed = true;
+
+
+	sd.BufferDesc.RefreshRate.Numerator		= m_MonitorNumerator;
+	sd.BufferDesc.RefreshRate.Denominator	= m_MonitorDenumerator;
 	sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	sd.BufferDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
 	sd.BufferDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
@@ -534,9 +597,8 @@ bool D3DApp::InitDirect3D()
 	sd.BufferUsage  = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	sd.BufferCount  = 1;
 	sd.OutputWindow = mhMainWnd;
-	sd.Windowed     = true;
 	sd.SwapEffect   = DXGI_SWAP_EFFECT_DISCARD;
-	sd.Flags        = 0;
+	sd.Flags		= 0;
 
 	// To correctly create the swap chain, we must use the IDXGIFactory that was
 	// used to create the device.  If we tried to use a different IDXGIFactory instance
@@ -550,10 +612,16 @@ bool D3DApp::InitDirect3D()
 	HR(dxgiDevice->GetParent(__uuidof(IDXGIAdapter), (void**)&dxgiAdapter));
 
 	IDXGIFactory* dxgiFactory = 0;
+
 	HR(dxgiAdapter->GetParent(__uuidof(IDXGIFactory), (void**)&dxgiFactory));
 
 	HR(dxgiFactory->CreateSwapChain(md3dDevice, &sd, &mSwapChain));
 	
+
+	//Disable Alt-Enter Sequence
+	dxgiFactory->MakeWindowAssociation(mhMainWnd, DXGI_MWA_NO_ALT_ENTER);
+
+
 	ReleaseCOM(dxgiDevice);
 	ReleaseCOM(dxgiAdapter);
 	ReleaseCOM(dxgiFactory);
@@ -563,6 +631,10 @@ bool D3DApp::InitDirect3D()
 	// just call the OnResize method here to avoid code duplication.
 	
 	OnResize();
+
+	if (mFullScreen){ mSwapChain->SetFullscreenState(true, NULL); }
+
+	
 
 	return true;
 }
@@ -584,10 +656,13 @@ void D3DApp::CalculateFrameStats()
 		float fps = (float)frameCnt; // fps = frameCnt / 1
 		float mspf = 1000.0f / fps;
 
+
+
+
 		std::wostringstream outs;   
 		outs.precision(6);
-		outs << mMainWndCaption << L"    "
-			 << L"FPS: " << fps << L"    " 
+		outs << mMainWndCaption << L"    " << L" On The -> " << m_pVideoCardDescription << L" With " << m_videoCardMemory << L" Mbs "
+			  << L"  At-> " << L"FPS: " << fps << L"    " 
 			 << L"Frame Time: " << mspf << L" (ms)";
 		SetWindowText(mhMainWnd, outs.str().c_str());
 		
@@ -596,5 +671,6 @@ void D3DApp::CalculateFrameStats()
 		timeElapsed += 1.0f;
 	}
 }
+
 
 

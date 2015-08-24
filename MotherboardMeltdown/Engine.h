@@ -30,10 +30,32 @@ public:
 	void OnMouseUp(WPARAM btnState, int x, int y);
 	void OnMouseMove(WPARAM btnState, int x, int y);
 	void OnKeyUP(WPARAM btnState);
+	void KeyboardHandler(float dt);
+	void CameraHandler();
+	void ClearScene();
+	void RestoreStates();
+
+	//SCENE INITS
+	void InitMainMenu();
+	void InitPaused();
+	void InitGameOn();
+	void InitWin();
+	void InitLose();
+
+	//GAME DRAWS
+	void DrawMainMenu();
+	void DrawPaused();
+	void DrawGameOn();
+	void DrawWin();
+	void DrawLose();
 
 private:
 	Sky* mSky;
 	Terrain mTerrain;
+
+	ID3D11Buffer* mShapesVB;
+	ID3D11Buffer* mShapesIB;
+
 
 	ID3D11ShaderResourceView* mFlareTexSRV;
 	ID3D11ShaderResourceView* mRainTexSRV;
@@ -45,6 +67,15 @@ private:
 	DirectionalLight mDirLights[3];
 
 	Camera mCam;
+
+
+	//MAIN MENU STUFF
+	ID3D11ShaderResourceView* mFloorTexSRV;
+	Material mGridMat;
+	XMFLOAT4X4 mGridWorld;
+	int mGridVertexOffset;
+	UINT mGridIndexOffset;
+	UINT mGridIndexCount;
 
 	bool mWalkCamMode;
 	bool mWireMode;

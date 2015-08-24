@@ -10,10 +10,11 @@
 
 #ifndef D3DAPP_H
 #define D3DAPP_H
-
 #include "d3dUtil.h"
 #include "GameTimer.h"
 #include <string>
+
+#define FULLSCREEN false
 
 class D3DApp
 {
@@ -41,26 +42,31 @@ public:
 	virtual void OnMouseUp(WPARAM btnState, int x, int y)  { }
 	virtual void OnMouseMove(WPARAM btnState, int x, int y){ }
 	virtual void OnKeyUP(WPARAM btnState){ }
-	virtual void TurnOnWireFrame();
-	virtual void TurnOnBackFaceCulling();
+
 
 protected:
 	bool InitMainWindow();
+	bool InitGraphicsCard();
 	bool InitDirect3D();
 
 	void CalculateFrameStats();
 
 protected:
-
 	HINSTANCE mhAppInst;
 	HWND      mhMainWnd;
 	bool      mAppPaused;
 	bool      mMinimized;
 	bool      mMaximized;
 	bool      mResizing;
-	bool      mWireOn;
-	bool      mCullOn;
+	bool	  mCursorOn;
+	bool	  mFullScreen;
 	UINT      m4xMsaaQuality;
+	int		  m_videoCardMemory;
+	int		  m_ScreenWidth;
+	int		  m_ScreenHeight;
+	int		  m_MonitorDenumerator;
+	int		  m_MonitorNumerator;
+	char	  m_pVideoCardDescription[128];
 
 	GameTimer mTimer;
 
