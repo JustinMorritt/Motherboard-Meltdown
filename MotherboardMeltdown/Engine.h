@@ -14,6 +14,8 @@
 #include "Terrain.h"
 #include "ParticleSystem.h"
 #include "StateMachine.h"
+#include "Button.h"
+#include "xnacollision.h"
 
 class Engine : public D3DApp
 {
@@ -49,6 +51,14 @@ public:
 	void DrawWin();
 	void DrawLose();
 
+	//BUTTON HANDLERS
+	void BtnsMainMenu(float x, float y, bool clicked);
+	void BtnsPaused(float x, float y, bool clicked);
+	void BtnsGameOn(float x, float y, bool clicked);
+	void BtnsWin(float x, float y, bool clicked);
+	void BtnsLose(float x, float y, bool clicked);
+	bool InButton(float sx, float sy, Button* button);
+
 private:
 	Sky* mSky;
 	Terrain mTerrain;
@@ -56,6 +66,7 @@ private:
 	ID3D11Buffer* mShapesVB;
 	ID3D11Buffer* mShapesIB;
 
+	Button* mButton1;
 
 	ID3D11ShaderResourceView* mFlareTexSRV;
 	ID3D11ShaderResourceView* mRainTexSRV;

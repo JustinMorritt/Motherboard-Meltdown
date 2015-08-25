@@ -11,8 +11,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE prevInstance,
 
 	Engine theApp(hInstance);
 
-	if (!theApp.Init())
-		return 0;
+	if (!theApp.Init())	return 0;
 
 	return theApp.Run();
 }

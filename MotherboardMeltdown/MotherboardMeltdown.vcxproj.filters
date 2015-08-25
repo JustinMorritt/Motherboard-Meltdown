@@ -78,6 +78,9 @@
     <ClCompile Include="StateMachine.cpp">
       <Filter>CPP</Filter>
     </ClCompile>
+    <ClCompile Include="Button.cpp">
+      <Filter>CPP</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Effects.h">
@@ -138,6 +141,9 @@
       <Filter>HEADER</Filter>
     </ClInclude>
     <ClInclude Include="StateMachine.h">
+      <Filter>HEADER</Filter>
+    </ClInclude>
+    <ClInclude Include="Button.h">
       <Filter>HEADER</Filter>
     </ClInclude>
   </ItemGroup>
