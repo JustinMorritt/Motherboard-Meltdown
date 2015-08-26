@@ -67,7 +67,22 @@ private:
 	ID3D11Buffer* mShapesVB;
 	ID3D11Buffer* mShapesIB;
 
-	Button* mButton1;
+	//Buttons
+	Button* mPlayButt;
+	Button* mPausedButt;
+	Button* mTitleButt;
+	Button* mAboutButt;
+	Button* mBymeButt;
+	Button* mCompiledButt;
+	Button* mMusicButt;
+	Button* mSoundButt;
+	Button* mSOnButt;
+	Button* mSOffButt;
+	Button* mMOnButt;
+	Button* mMOffButt;
+	Button* mBugsButt;
+	Button* mQuitButt;
+	Button* mRestartButt;
 
 	ID3D11ShaderResourceView* mFlareTexSRV;
 	ID3D11ShaderResourceView* mRainTexSRV;

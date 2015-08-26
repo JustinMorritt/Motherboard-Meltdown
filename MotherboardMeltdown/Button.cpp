@@ -28,7 +28,7 @@ hovering(false)
 	XMMATRIX I = XMMatrixIdentity();
 	XMStoreFloat4x4(&mWorld, I);
 
-	geoGen.CreateGrid(width, height, 4, 4, mGrid);
+	geoGen.CreateGrid(width, height, 2, 2, mGrid);
 
 	mIndexCount = mGrid.Indices.size();
 	mMeshVertices.resize(16);
