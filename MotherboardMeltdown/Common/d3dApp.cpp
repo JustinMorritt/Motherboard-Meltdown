@@ -402,9 +402,10 @@ bool D3DApp::InitMainWindow()
 	UINT newHeight = GetSystemMetrics(SM_CYSCREEN);
 	m_ScreenWidth = newWidth;
 	m_ScreenHeight = newHeight; //Storing screen dimentions in the app
-
+	mClientWidth = newWidth;
+	mClientHeight = newHeight;
 	// Compute window rectangle dimensions based on requested client area dimensions.
-	RECT R = { 0, 0, mClientWidth, mClientHeight };
+	RECT R = { 0, 0, newWidth, newWidth };
 	AdjustWindowRect(&R, WS_OVERLAPPEDWINDOW, false);
 	int width = R.right - R.left;
 	int height = R.bottom - R.top;
@@ -415,11 +416,16 @@ bool D3DApp::InitMainWindow()
 		MessageBox(0, L"CreateWindow Failed.", 0, 0);
 		return false;
 	}
+	if (mFullScreen){ ShowWindow(mhMainWnd, SW_SHOW); }
+	else
+	{
+		ShowWindow(mhMainWnd, SW_SHOWMAXIMIZED);
+	}
 
-	ShowWindow(mhMainWnd, SW_SHOW);
 	UpdateWindow(mhMainWnd);
 	SetForegroundWindow(mhMainWnd);
 	SetFocus(mhMainWnd);
+	
 	return true;
 }
 

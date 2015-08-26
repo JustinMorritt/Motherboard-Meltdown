@@ -69,7 +69,7 @@ public:
 
 	// After modifying camera position/orientation, call to rebuild the view matrix.
 	void UpdateViewMatrix();
-
+	float mPitch;
 private:
 
 	// Camera coordinate system with coordinates relative to world space.
@@ -85,6 +85,7 @@ private:
 	float mFovY;
 	float mNearWindowHeight;
 	float mFarWindowHeight;
+	
 
 	// Cache View/Proj matrices.
 	XMFLOAT4X4 mView;

@@ -74,6 +74,7 @@ public:
 	float prevRoll;
 
 	bool hovering;
+	bool clicked;
 
 	//SYSTEM COPIES OF MESH FOR PICKING
 	std::vector<Vertex::Basic32> mMeshVertices;

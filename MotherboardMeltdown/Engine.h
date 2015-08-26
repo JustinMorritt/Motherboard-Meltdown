@@ -16,6 +16,7 @@
 #include "StateMachine.h"
 #include "Button.h"
 #include "xnacollision.h"
+#include "MathHelper.h"
 
 class Engine : public D3DApp
 {
@@ -91,6 +92,7 @@ private:
 	bool mWalkCamMode;
 	bool mWireMode;
 	bool mBFCull;
+	bool fullyLoaded;
 
 	POINT mLastMousePos;
 };

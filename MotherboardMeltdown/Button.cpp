@@ -99,13 +99,10 @@ void Button::Update(const Camera& camera, float dt)
 	if (hovering)
 	{
 		//SCALING THE WAY I THOUGHT NEEDED DONE
-		XMMATRIX curr = XMLoadFloat4x4(&mWorld);
-		XMMATRIX trans = XMMatrixTranslation(curr.m[3][0], curr.m[3][1], curr.m[3][2]);
-		XMMATRIX scaling = XMMatrixScaling(2.0f, 2.0f, 2.0f);
-		XMStoreFloat4x4(&mWorld, scaling * trans); // Scaled Then sent Back To Original Position;
-		//Roll(prevRoll);
-		//Pitch(prevPitch);
-		//RotateY(rotationY);
+		XMMATRIX trans = XMMatrixTranslation(mWorld.m[3][0], mWorld.m[3][1], mWorld.m[3][2]); // ORIGINAL TRANSLATION
+		XMMATRIX rotX = XMMatrixRotationX(-XM_PI / 4.5);
+		XMMATRIX scaling = XMMatrixScaling(1.5f, 1.5f, 1.5f);
+		XMStoreFloat4x4(&mWorld, scaling * rotX * trans); // Scaled Then sent Back To Original Position;
 	}
 
 }

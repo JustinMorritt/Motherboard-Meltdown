@@ -5,7 +5,7 @@
 
 Engine::Engine(HINSTANCE hInstance)
 	: D3DApp(hInstance), mSky(0), mRandomTexSRV(0), mFlareTexSRV(0), mRainTexSRV(0), mFloorTexSRV(0), mWalkCamMode(false), mWireMode(false), mBFCull(false)
-	, mButton1(0)
+	, mButton1(0), fullyLoaded(false)
 {
 	mMainWndCaption = L"Motherboard Meltdown";
 	mEnable4xMsaa = false;
@@ -75,6 +75,9 @@ bool Engine::Init()
 // 	mFire.SetEmitPos(XMFLOAT3(0.0f, 1.0f, 120.0f));
 
 	*StateMachine::pGameState = GameState::MAINMENU;
+
+
+
 
 	return true;
 }
@@ -359,7 +362,7 @@ void Engine::DrawMainMenu()
 
 	}
 
-
+	if(!fullyLoaded)fullyLoaded = true;
 }
 void Engine::DrawPaused()
 {
@@ -388,7 +391,7 @@ void Engine::OnMouseDown(WPARAM btnState, int x, int y)
 	{
 		mLastMousePos.x = x;
 		mLastMousePos.y = y;
-		BtnsMainMenu(x, y, true);
+		//BtnsMainMenu(x, y, true);
 		SetCapture(mhMainWnd);
 	}
 }
@@ -398,22 +401,28 @@ void Engine::OnMouseUp(WPARAM btnState, int x, int y)
 }
 void Engine::OnMouseMove(WPARAM btnState, int x, int y)
 {
-	switch (*StateMachine::pGameState)
+	if (fullyLoaded)
 	{
-	case GameState::MAINMENU:	BtnsMainMenu(	x, y,false);	break;
-	case GameState::PAUSED:		BtnsPaused(		x, y,false);	break;
-	case GameState::WIN:		BtnsWin(		x, y,false);	break;
-	case GameState::LOSE:		BtnsLose(		x, y,false);	break;
-	case GameState::GAMEON:		BtnsGameOn(		x, y,false);	break;
+		switch (*StateMachine::pGameState)
+		{
+		case GameState::MAINMENU:	BtnsMainMenu(x, y, false);		break;
+		case GameState::PAUSED:		BtnsPaused(x, y, false);		break;
+		case GameState::WIN:		BtnsWin(x, y, false);			break;
+		case GameState::LOSE:		BtnsLose(x, y, false);			break;
+		case GameState::GAMEON:		BtnsGameOn(x, y, false);		break;
+		}
 	}
-
 	if ((btnState & MK_LBUTTON) != 0)
 	{
 		// Make each pixel correspond to a quarter of a degree.
 		float dx = XMConvertToRadians(0.25f*static_cast<float>(x - mLastMousePos.x));
 		float dy = XMConvertToRadians(0.25f*static_cast<float>(y - mLastMousePos.y));
 
-		mCam.Pitch(dy);
+		mCam.mPitch += dy; //Increment internal pitch 
+
+		if (mCam.mPitch > -XM_PI/2 && mCam.mPitch < XM_PI/4){ mCam.Pitch(dy); } //LIMITS UP AND DOWN
+		mCam.mPitch = MathHelper::Clamp(mCam.mPitch, -XM_PI / 2, XM_PI/4);
+		
 		mCam.RotateY(dx);
 	}
 
@@ -480,8 +489,6 @@ void Engine::BtnsMainMenu(float x, float y, bool clicked)
 		}
 	}
 	else{ mButton1->hovering = false; }
-		
-
 }
 void Engine::BtnsPaused(float x, float y, bool clicked)
 {
@@ -504,8 +511,19 @@ bool Engine::InButton(float x, float y, Button* button)
 	XMMATRIX P = mCam.Proj();
 
 	// Compute picking ray in view space.
-	float vx = (+2.0f*x / mClientWidth - 1.0f) / P(0, 0);
-	float vy = (-2.0f*y / mClientHeight + 1.0f) / P(1, 1);
+	int newWidth, newHeight;
+	float fs;
+	if (mFullScreen){ newWidth = m_ScreenWidth; newHeight = m_ScreenHeight; fs = 1.0f; }
+	else
+	{
+		fs = 1.0f;
+		newWidth	= mClientWidth   ;
+		newHeight	= mClientHeight  ;
+	}
+
+	float vx = (+2.0f*x / newWidth - fs) / P(0, 0);
+	float vy = (-2.0f*y / newHeight + fs) / P(1, 1);
+
 
 	// Ray definition in view space.
 	XMVECTOR rayOrigin = XMVectorSet(0.0f, 0.0f, 0.0f, 1.0f);

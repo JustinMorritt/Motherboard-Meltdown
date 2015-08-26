@@ -8,7 +8,8 @@ Camera::Camera()
 	: mPosition(0.0f, 0.0f, 0.0f), 
 	  mRight(1.0f, 0.0f, 0.0f),
 	  mUp(0.0f, 1.0f, 0.0f),
-	  mLook(0.0f, 0.0f, 1.0f)
+	  mLook(0.0f, 0.0f, 1.0f),
+	  mPitch(0.0f)
 {
 	SetLens(0.25f*MathHelper::Pi, 1.0f, 1.0f, 1000.0f);
 }
@@ -186,10 +187,13 @@ void Camera::Pitch(float angle)
 {
 	// Rotate up and look vector about the right vector.
 
+
 	XMMATRIX R = XMMatrixRotationAxis(XMLoadFloat3(&mRight), angle);
 
 	XMStoreFloat3(&mUp,   XMVector3TransformNormal(XMLoadFloat3(&mUp), R));
 	XMStoreFloat3(&mLook, XMVector3TransformNormal(XMLoadFloat3(&mLook), R));
+
+
 }
 
 void Camera::Roll(float angle)
