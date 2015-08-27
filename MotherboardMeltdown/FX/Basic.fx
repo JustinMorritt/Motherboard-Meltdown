@@ -101,7 +101,7 @@ float4 PS(VertexOut pin,
 			// Discard pixel if texture alpha < 0.1.  Note that we do this
 			// test as soon as possible so that we can potentially exit the shader 
 			// early, thereby skipping the rest of the shader code.
-			clip(texColor.a - 0.9f); // CHANGED FOR MORE ACCURATE CLIPPING 
+			clip(texColor.a - 0.7f); // CHANGED FOR MORE ACCURATE CLIPPING 
 		}
 	}
 	 

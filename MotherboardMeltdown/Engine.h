@@ -66,6 +66,7 @@ public:
 	void BtnsWin(float x, float y, bool clicked);
 	void BtnsLose(float x, float y, bool clicked);
 	bool InButton(float sx, float sy, Button* button);
+	bool InButton2D(float sx, float sy, Button* button);
 
 private:
 	Sky* mSky;
@@ -123,6 +124,10 @@ private:
 	bool fullyLoaded;
 
 	POINT mLastMousePos;
+
+	XMMATRIX mOrthoWorld;
+	
+
 };
 
 

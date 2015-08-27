@@ -16,6 +16,7 @@ ID3D11DepthStencilState* RenderStates::MarkMirrorDSS = 0;
 ID3D11DepthStencilState* RenderStates::DrawReflectionDSS = 0;
 ID3D11DepthStencilState* RenderStates::NoDoubleBlendDSS = 0;
 ID3D11DepthStencilState* RenderStates::DrawReflectionDSSShadow = 0;
+ID3D11DepthStencilState* RenderStates::ZBufferDisabled = 0;
 
 
 
@@ -227,7 +228,23 @@ void RenderStates::InitAll(ID3D11Device* device)
 
 	HR(device->CreateDepthStencilState(&noDoubleBlendDesc, &NoDoubleBlendDSS));
 
+	D3D11_DEPTH_STENCIL_DESC zBufferDisabled;
+	zBufferDisabled.DepthEnable = false;
+	zBufferDisabled.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	zBufferDisabled.DepthFunc = D3D11_COMPARISON_LESS;
+	zBufferDisabled.StencilEnable = true;
+	zBufferDisabled.StencilReadMask = 0xFF;
+	zBufferDisabled.StencilWriteMask = 0xFF;
+	zBufferDisabled.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	zBufferDisabled.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
+	zBufferDisabled.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+	zBufferDisabled.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+	zBufferDisabled.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+	zBufferDisabled.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
+	zBufferDisabled.BackFace.StencilPassOp = D3D11_STENCIL_OP_INCR;
+	zBufferDisabled.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
 
+	HR(device->CreateDepthStencilState(&zBufferDisabled, &ZBufferDisabled));
 
 
 
@@ -250,4 +267,6 @@ void RenderStates::DestroyAll()
 	ReleaseCOM(DrawReflectionDSS);
 	ReleaseCOM(NoDoubleBlendDSS);
 	ReleaseCOM(DrawReflectionDSSShadow);
+	ReleaseCOM(ZBufferDisabled);
+	
 }

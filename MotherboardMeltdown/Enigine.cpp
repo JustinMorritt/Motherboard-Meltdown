@@ -54,6 +54,9 @@ Engine::Engine(HINSTANCE hInstance)
 	mShadowMat.Ambient = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
 	mShadowMat.Diffuse = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.5f);
 	mShadowMat.Specular = XMFLOAT4(0.0f, 0.0f, 0.0f, 16.0f);
+
+
+	mOrthoWorld = XMMatrixOrthographicLH(mClientWidth, mClientHeight, -1000.0f, 1000.0f);
 }
 
 Engine::~Engine()
@@ -109,7 +112,7 @@ bool Engine::Init()
 void Engine::OnResize()
 {
 	D3DApp::OnResize();
-
+	mOrthoWorld = XMMatrixOrthographicLH(mClientWidth, mClientHeight, -1000.0f, 1000.0f);
 	mCam.SetLens(0.25f*MathHelper::Pi, AspectRatio(), 1.0f, 3000.0f);
 }
 
@@ -164,17 +167,19 @@ void Engine::UpdateGame(float dt)
 	mRestartButt->Update(mCam, dt);
 	mPausedButt->Update(mCam, dt);
 	mBackButt->Update(mCam, dt);
-
-	
 }
 
 void Engine::DrawScene()
 {
 	ClearScene();
+	mSky->Draw(md3dImmediateContext, mCam); //Draw Sky First So The Z Buffer Takes Effect  ... Otherwise it Draws Over I
+
 
 	md3dImmediateContext->IASetInputLayout(InputLayouts::Basic32);
     md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
  
+	
+
 	if( mWireMode )	md3dImmediateContext->RSSetState(RenderStates::WireframeRS);
 
 	//SWITCH ON THE MODE THE GAME IS IN 
@@ -188,7 +193,7 @@ void Engine::DrawScene()
 	case GameState::GAMEON:		DrawGameOn();	break;
 	}
 
-	mSky->Draw(md3dImmediateContext, mCam);
+	
 	// Draw particle systems last so it is blended with scene.
 // 	mFire.SetEyePos(mCam.GetPosition());
 // 	mFire.Draw(md3dImmediateContext, mCam);
@@ -245,12 +250,12 @@ void Engine::InitMainMenu()
 	mTitleButt		= new Button(md3dDevice, L"Textures/title.dds",		140.0f, 50.0f);
 	mAboutButt		= new Button(md3dDevice, L"Textures/about.dds",		80.0f, 40.0f);
 
-	mCompiledButt	= new Button(md3dDevice, L"Textures/compiled.dds",	80.0f, 40.0f);
+	mCompiledButt	= new Button(md3dDevice, L"Textures/compiled.dds",	400.0f, 200.0f);
 	mBymeButt		= new Button(md3dDevice, L"Textures/byme.dds",		110.0f, 30.0f);
-	mBugsButt		= new Button(md3dDevice, L"Textures/bugs.dds",		80.0f, 40.0f);
-	mQuitButt		= new Button(md3dDevice, L"Textures/quit.dds",		80.0f, 40.0f);
-	mRestartButt	= new Button(md3dDevice, L"Textures/restart.dds",	80.0f, 40.0f);
-	mPausedButt		= new Button(md3dDevice, L"Textures/paused.dds",	80.0f, 40.0f);
+	mBugsButt		= new Button(md3dDevice, L"Textures/bugs.dds",		350.0f, 200.0f);
+	mQuitButt		= new Button(md3dDevice, L"Textures/quit.dds",		350.0f, 200.0f);
+	mRestartButt	= new Button(md3dDevice, L"Textures/restart.dds",	350.0f, 200.0f);
+	mPausedButt		= new Button(md3dDevice, L"Textures/paused.dds",	600.0f, 300.0f);
 	mBackButt		= new Button(md3dDevice, L"Textures/back.dds",		80.0f, 40.0f);
 	mAboutMsgButt	= new Button(md3dDevice, L"Textures/aboutmsg.dds",	110.0f, 110.0f);
 
@@ -286,7 +291,7 @@ void Engine::InitMainMenu()
 	mBymeButt->SetPos(-130.0f, 100.0f, -90.0f);
 	mBymeButt->Pitch(XM_PI / 4.5);
 
-	mRestartButt->SetPos(-100.0f, 100.0f, -90.0f);
+	mRestartButt->SetPos(-700.0f, 100.0f, -90.0f);
 	mRestartButt->Pitch(XM_PI / 4.5);
 
 	mPausedButt->SetPos(0.0f, 150.0f, -90.0f);
@@ -298,13 +303,13 @@ void Engine::InitMainMenu()
 	mAboutMsgButt->SetPos(0.0f, 160.0f, -115.0f);
 	mAboutMsgButt->Pitch(XM_PI / 4.5);
 
-	mBugsButt->SetPos(-100.0f, 100.0f, -90.0f);
-	mBugsButt->Pitch(XM_PI / 4.5);
+	mBugsButt->SetPos(-700.0f, -500.0f, -90.0f);
+	mBugsButt->Pitch(XM_PI / 4);
 
-	mCompiledButt->SetPos(-100.0f, 150.0f, -10.0f);
-	mCompiledButt->Pitch(XM_PI / 4.5);
+	mCompiledButt->SetPos(-700.0f, 650.0f, 0.0f);
+	mCompiledButt->Pitch(XM_PI / 4);
 
-	mQuitButt->SetPos(100.0f, 100.0f, -90.0f);
+	mQuitButt->SetPos(700.0f, 100.0f, -90.0f);
 	mQuitButt->Pitch(XM_PI / 4.5);
 
 	GeometryGenerator geoGen;
@@ -524,7 +529,7 @@ void Engine::DrawMainMenu()
 
 	// Figure out which technique to use.  Skull does not have texture coordinates,
 	// so we need a separate technique for it.
-	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light1TexAlphaClipTech;
+	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light2TexAlphaClipTech;
 	D3DX11_TECHNIQUE_DESC techDesc;
 	activeTexTech->GetDesc(&techDesc);
 	for (UINT p = 0; p < techDesc.Passes; ++p)
@@ -695,9 +700,9 @@ void Engine::DrawPaused()
 	md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
 	for (UINT p = 0; p < techDesc.Passes; ++p)
 	{
-		mPausedButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
-		mQuitButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
-		mRestartButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+		mPausedButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mQuitButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mRestartButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
 	}
 
 	RestoreStates();
@@ -743,11 +748,12 @@ void Engine::DrawGameOn()
 		activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
 		md3dImmediateContext->DrawIndexed(mGridIndexCount, mGridIndexOffset, mGridVertexOffset);
 
+
 		//DRAW BUTTS
-
-		mBugsButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
-		mCompiledButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
-
+		activeTexTech = Effects::BasicFX->Light2TexAlphaClipTech;
+		md3dImmediateContext->OMSetDepthStencilState(RenderStates::ZBufferDisabled, 0); // changing 0 means overlaping draws
+		mBugsButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mCompiledButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
 	}
 
 	RestoreStates();
@@ -822,6 +828,28 @@ void Engine::OnMouseMove(WPARAM btnState, int x, int y)
 
 	mLastMousePos.x = x;
 	mLastMousePos.y = y;
+
+	//Mouse Wrap around
+	if (*StateMachine::pGameState == GameState::GAMEON)
+	{
+		if (x <= 3)
+		{
+			SetCursorPos(mClientWidth, y);
+			mLastMousePos.x = mClientWidth;
+			mLastMousePos.y = y;
+			return;
+		}
+		else if (x >= mClientWidth - 3)
+		{
+			SetCursorPos(5, y);
+			mLastMousePos.x = 5;
+			mLastMousePos.y = y;
+			return;
+		}
+		
+	} 
+
+
 }
 void Engine::OnKeyUP(WPARAM btnState)
 {
@@ -949,7 +977,7 @@ void Engine::BtnsAbout(float x, float y, bool clicked)
 }
 void Engine::BtnsPaused(float x, float y, bool clicked)
 {
-	if (InButton(x, y, mQuitButt))
+	if (InButton2D(x, y, mQuitButt))
 	{
 		mQuitButt->hovering = true;
 		if (clicked)
@@ -959,7 +987,7 @@ void Engine::BtnsPaused(float x, float y, bool clicked)
 	}
 	else{ mQuitButt->hovering = false; }
 
-	if (InButton(x, y, mRestartButt))
+	if (InButton2D(x, y, mRestartButt))
 	{
 		mRestartButt->hovering = true;
 		if (clicked)
@@ -1019,7 +1047,7 @@ bool Engine::InButton(float x, float y, Button* button)
 	// Make the ray direction unit length for the intersection tests.
 	rayDir = XMVector3Normalize(rayDir);
 
-	float tmin = 0.0f;
+	float tmin = 0.0f; // The Returned Distance
 	if (XNA::IntersectRayAxisAlignedBox(rayOrigin, rayDir, &button->mMeshBox, &tmin))
 	{
 		//WE ARE IN THE MESH .. DO WHATEVER YOU WANT
@@ -1027,4 +1055,16 @@ bool Engine::InButton(float x, float y, Button* button)
 	}
 	return false;
 }
+bool Engine::InButton2D(float sx, float sy, Button* button)
+{
+	bool inX = false;
+	bool inY = false;
+// 	if (sx > bottomLeft.x && sx < topRight.x)
+// 		inX = true;
+// 
+// 	if (sy > bottomLeft.y && sy < topRight.y)
+// 		inY = true;
 
+	return (inX && inY);
+
+}

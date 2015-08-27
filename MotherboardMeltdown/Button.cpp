@@ -17,9 +17,9 @@ hovering(false)
 
 
 	//SET MATERIAL
-	mMat.Ambient = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
-	mMat.Diffuse = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
-	mMat.Specular = XMFLOAT4(0.8f, 0.8f, 0.8f, 16.0f);
+	mMat.Ambient = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	mMat.Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	mMat.Specular = XMFLOAT4(1.0f, 1.0f, 1.0f, 48.0f);
 
 
 	GeometryGenerator geoGen;
@@ -112,6 +112,23 @@ void Button::Draw(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* conte
 	XMMATRIX world = XMLoadFloat4x4(&mWorld);
 	XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
 	XMMATRIX worldViewProj = world*camera.View()*camera.Proj();
+	Effects::BasicFX->SetWorld(world);
+	Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
+	Effects::BasicFX->SetWorldViewProj(worldViewProj);
+	Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
+	Effects::BasicFX->SetMaterial(mMat);
+	Effects::BasicFX->SetDiffuseMap(mTexSRV);
+
+	activeTech->GetPassByIndex(pass)->Apply(0, context);
+	context->DrawIndexed(mIndexCount, mIndexOffset, mVertexOffset);
+}
+
+void Button::Draw2D(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* context, UINT pass, const Camera& camera, XMMATRIX& ortho)
+{
+	XMMATRIX world = XMLoadFloat4x4(&mWorld);
+	XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
+
+	XMMATRIX worldViewProj = world*ortho;
 	Effects::BasicFX->SetWorld(world);
 	Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 	Effects::BasicFX->SetWorldViewProj(worldViewProj);
