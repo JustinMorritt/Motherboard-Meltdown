@@ -18,6 +18,7 @@
 #include "xnacollision.h"
 #include "MathHelper.h"
 
+
 class Engine : public D3DApp
 {
 public:
@@ -47,13 +48,19 @@ public:
 
 	//GAME DRAWS
 	void DrawMainMenu();
+	void DrawAbout();
 	void DrawPaused();
 	void DrawGameOn();
 	void DrawWin();
 	void DrawLose();
 
+	void UpdateMainMenu(float dt);
+	void UpdateGame(float dt);
+
+
 	//BUTTON HANDLERS
 	void BtnsMainMenu(float x, float y, bool clicked);
+	void BtnsAbout(float x, float y, bool clicked);
 	void BtnsPaused(float x, float y, bool clicked);
 	void BtnsGameOn(float x, float y, bool clicked);
 	void BtnsWin(float x, float y, bool clicked);
@@ -69,20 +76,23 @@ private:
 
 	//Buttons
 	Button* mPlayButt;
-	Button* mPausedButt;
 	Button* mTitleButt;
 	Button* mAboutButt;
-	Button* mBymeButt;
-	Button* mCompiledButt;
 	Button* mMusicButt;
 	Button* mSoundButt;
 	Button* mSOnButt;
 	Button* mSOffButt;
 	Button* mMOnButt;
 	Button* mMOffButt;
+
+	Button* mCompiledButt;
+	Button* mBymeButt;
 	Button* mBugsButt;
 	Button* mQuitButt;
 	Button* mRestartButt;
+	Button* mPausedButt;
+	Button* mBackButt;
+	Button* mAboutMsgButt;
 
 	ID3D11ShaderResourceView* mFlareTexSRV;
 	ID3D11ShaderResourceView* mRainTexSRV;
@@ -98,7 +108,10 @@ private:
 
 	//MAIN MENU STUFF
 	ID3D11ShaderResourceView* mFloorTexSRV;
+
 	Material mGridMat;
+	Material mShadowMat;
+
 	XMFLOAT4X4 mGridWorld;
 	int mGridVertexOffset;
 	UINT mGridIndexOffset;
@@ -111,8 +124,6 @@ private:
 
 	POINT mLastMousePos;
 };
-
-
 
 
 #endif // Engine_h__

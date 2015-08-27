@@ -4,6 +4,7 @@
 enum class GameState
 {
 	MAINMENU,
+	ABOUT,
 	PAUSED,
 	WIN,
 	LOSE,

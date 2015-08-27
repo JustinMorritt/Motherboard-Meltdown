@@ -15,11 +15,23 @@ public:
 	static void InitAll(ID3D11Device* device);
 	static void DestroyAll();
 
+	// Rasterizer states
 	static ID3D11RasterizerState* WireframeRS;
 	static ID3D11RasterizerState* NoCullRS;
+	static ID3D11RasterizerState* CullClockwiseRS; // Used to Cull the Backside of the Skull that has been reflected 
 	 
+	// Blend states
 	static ID3D11BlendState* AlphaToCoverageBS;
 	static ID3D11BlendState* TransparentBS;
+	static ID3D11BlendState* NoRenderTargetWritesBS; //Added with Shadows
+
+	// Depth/stencil states
+	static ID3D11DepthStencilState* MarkMirrorDSS;
+	static ID3D11DepthStencilState* DrawReflectionDSS;
+	static ID3D11DepthStencilState* DrawReflectionDSSShadow;
+	static ID3D11DepthStencilState* NoDoubleBlendDSS;
+
+
 };
 
 #endif // RENDERSTATES_H

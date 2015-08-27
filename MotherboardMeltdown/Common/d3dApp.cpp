@@ -156,16 +156,7 @@ void D3DApp::OnResize()
 	ReleaseCOM(mDepthStencilView);
 	ReleaseCOM(mDepthStencilBuffer);
 
-
-	// Resize the swap chain and recreate the render target view.
-	if (!mFullScreen)
-	{
-		HR(mSwapChain->ResizeBuffers(1, mClientWidth, mClientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 0));
-	}
-	else
-	{
-		HR(mSwapChain->ResizeBuffers(1, m_ScreenWidth, m_ScreenHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 0));
-	}
+	HR(mSwapChain->ResizeBuffers(1, mClientWidth, mClientHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 0));
 
 	
 	ID3D11Texture2D* backBuffer;

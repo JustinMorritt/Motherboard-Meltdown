@@ -107,6 +107,47 @@ void Button::Update(const Camera& camera, float dt)
 
 }
 
+void Button::Draw(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* context, UINT pass, const Camera& camera)
+{
+	XMMATRIX world = XMLoadFloat4x4(&mWorld);
+	XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
+	XMMATRIX worldViewProj = world*camera.View()*camera.Proj();
+	Effects::BasicFX->SetWorld(world);
+	Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
+	Effects::BasicFX->SetWorldViewProj(worldViewProj);
+	Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
+	Effects::BasicFX->SetMaterial(mMat);
+	Effects::BasicFX->SetDiffuseMap(mTexSRV);
+
+	activeTech->GetPassByIndex(pass)->Apply(0, context);
+	context->DrawIndexed(mIndexCount, mIndexOffset, mVertexOffset);
+}
+
+void Button::DrawShadow(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* context, const XMVECTOR& shadPlane, const XMVECTOR& lightDir, const XMMATRIX& S, float scale, float xOff, float yOff, float zOff, const Camera& camera, const Material& mat)
+{
+	D3DX11_TECHNIQUE_DESC techDesc;
+	activeTech->GetDesc(&techDesc);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		ID3DX11EffectPass* pass = activeTech->GetPassByIndex(p);
+		XMMATRIX shadowScale = XMMatrixScaling(scale, scale, scale);
+
+		XMMATRIX trans = XMMatrixTranslation(mWorld.m[3][0] + xOff, yOff, mWorld.m[3][2] + zOff); // ORIGINAL TRANSLATION
+		XMMATRIX world = XMLoadFloat4x4(&mWorld)*S*shadowScale*trans;
+		XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
+		XMMATRIX worldViewProj = world*camera.View()*camera.Proj();
+
+		Effects::BasicFX->SetWorld(world);
+		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
+		Effects::BasicFX->SetWorldViewProj(worldViewProj);
+		Effects::BasicFX->SetMaterial(mat);
+		Effects::BasicFX->SetDiffuseMap(mTexSRV);
+
+		pass->Apply(0, context);
+		context->DrawIndexed(mIndexCount, mIndexOffset, 0);
+	}
+}
+
 void Button::SetVertexOffset(int offSet)
 {
 	mVertexOffset = offSet;
@@ -115,6 +156,33 @@ void Button::SetVertexOffset(int offSet)
 void Button::SetIndexOffset(int offSet)
 {
 	mIndexOffset = offSet;
+}
+
+void Button::LoadVertData(std::vector<Vertex::Basic32>& verts, UINT& k)
+{
+	XMFLOAT3 vMinf3(+MathHelper::Infinity, +MathHelper::Infinity, +MathHelper::Infinity);
+	XMFLOAT3 vMaxf3(-MathHelper::Infinity, -MathHelper::Infinity, -MathHelper::Infinity);
+
+	XMVECTOR vMin = XMLoadFloat3(&vMinf3);
+	XMVECTOR vMax = XMLoadFloat3(&vMaxf3);
+
+	for (size_t i = 0; i < mGrid.Vertices.size(); ++i, ++k)
+	{
+		verts[k].Pos	= mGrid.Vertices[i].Position;
+		verts[k].Normal = mGrid.Vertices[i].Normal;
+		verts[k].Tex	= mGrid.Vertices[i].TexC;
+
+		//Copy Into The Buttons Messh For Future Collision Check 
+		mMeshVertices[i].Pos	= mGrid.Vertices[i].Position;
+		mMeshVertices[i].Normal = mGrid.Vertices[i].Normal;
+
+		XMVECTOR P = XMLoadFloat3(&mMeshVertices[i].Pos);
+
+		vMin = XMVectorMin(vMin, P);
+		vMax = XMVectorMax(vMax, P);
+	}
+	XMStoreFloat3(&mMeshBox.Center, 0.5f*(vMin + vMax));
+	XMStoreFloat3(&mMeshBox.Extents, 0.5f*(vMax - vMin));
 }
 
 int Button::GetVertOffset()

@@ -1,5 +1,7 @@
 #include "Engine.h"
-//TODO: make back Button , Set Up Buttons With a Nice Draw ... This Will come In Handy...
+//TODO: make back Button ....Make A Button Able To Have a Start And End Position and it Goes to it ..
+/*Clamp Cursor to Center of screen ... its stopping half way when turning */
+
 
 
 
@@ -20,6 +22,8 @@ Engine::Engine(HINSTANCE hInstance)
 	mBugsButt(0),
 	mQuitButt(0),
 	mRestartButt(0),
+	mBackButt(0),
+	mAboutMsgButt(0),
 	fullyLoaded(false)
 {
 	mMainWndCaption = L"Motherboard Meltdown";
@@ -46,6 +50,10 @@ Engine::Engine(HINSTANCE hInstance)
 	mDirLights[2].Diffuse  = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 	mDirLights[2].Specular = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 	mDirLights[2].Direction = XMFLOAT3(-0.57735f, -0.57735f, -0.57735f);
+
+	mShadowMat.Ambient = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+	mShadowMat.Diffuse = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.5f);
+	mShadowMat.Specular = XMFLOAT4(0.0f, 0.0f, 0.0f, 16.0f);
 }
 
 Engine::~Engine()
@@ -110,7 +118,29 @@ void Engine::UpdateScene(float dt)
 	KeyboardHandler(dt);
 	CameraHandler();
 
+	//SWITCH ON THE MODE THE GAME IS IN 
+	switch (*StateMachine::pGameState)
+	{
+	case GameState::ABOUT:		
+	case GameState::MAINMENU:	UpdateMainMenu(dt); break;
+	case GameState::GAMEON:		
+	case GameState::PAUSED:
+	case GameState::WIN:
+	case GameState::LOSE:		UpdateGame(dt);		break;
+	}
+
+	//mButton1->RotateY(mButton1->rotation);
+
+
+	//UPDATE PARTICLE SYSTEMS
+	mFire.Update(dt, mTimer.TotalTime());
+	mRain.Update(dt, mTimer.TotalTime());
+
 	
+}
+
+void Engine::UpdateMainMenu(float dt)
+{
 	mPlayButt->Update(mCam, dt);
 	mSoundButt->Update(mCam, dt);
 	mMusicButt->Update(mCam, dt);
@@ -120,13 +150,20 @@ void Engine::UpdateScene(float dt)
 	mMOffButt->Update(mCam, dt);
 	mTitleButt->Update(mCam, dt);
 	mAboutButt->Update(mCam, dt);
-	
-	//mButton1->RotateY(mButton1->rotation);
+	mBackButt->Update(mCam, dt);
+	mAboutMsgButt->Update(mCam, dt);
+	mBymeButt->Update(mCam, dt);
+}
+void Engine::UpdateGame(float dt)
+{
+	(*StateMachine::pGameState == GameState::GAMEON) ? mCursorOn = false : mCursorOn = true;
 
-
-	//UPDATE PARTICLE SYSTEMS
-	mFire.Update(dt, mTimer.TotalTime());
-	mRain.Update(dt, mTimer.TotalTime());
+	mCompiledButt->Update(mCam, dt);
+	mBugsButt->Update(mCam, dt);
+	mQuitButt->Update(mCam, dt);
+	mRestartButt->Update(mCam, dt);
+	mPausedButt->Update(mCam, dt);
+	mBackButt->Update(mCam, dt);
 
 	
 }
@@ -144,6 +181,7 @@ void Engine::DrawScene()
 	switch (*StateMachine::pGameState)
 	{
 	case GameState::MAINMENU:	DrawMainMenu(); break;
+	case GameState::ABOUT:		DrawAbout(); break;
 	case GameState::PAUSED:		DrawPaused();	break;
 	case GameState::WIN:		DrawWin();		break;
 	case GameState::LOSE:		DrawLose();		break;
@@ -159,6 +197,8 @@ void Engine::DrawScene()
 	HR(mSwapChain->Present(0, 0));
 }
 
+
+//HELPERS
 void Engine::CameraHandler()
 {
 	// 
@@ -167,19 +207,16 @@ void Engine::CameraHandler()
 	if (mWalkCamMode)
 	{
 		XMFLOAT3 camPos = mCam.GetPosition();
-		float y = mTerrain.GetHeight(camPos.x, camPos.z);
-		mCam.SetPosition(camPos.x, y + 2.0f, camPos.z);
+		mCam.SetPosition(camPos.x, 50.0f, camPos.z);
 	}
 
 	mCam.UpdateViewMatrix();
 }
-
 void Engine::ClearScene()
 {
-	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, reinterpret_cast<const float*>(&Colors::Silver));
+	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, reinterpret_cast<const float*>(&Colors::Black));
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 }
-
 void Engine::RestoreStates()
 {
 	float blendFactor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -189,8 +226,10 @@ void Engine::RestoreStates()
 	md3dImmediateContext->OMSetBlendState(0, blendFactor, 0xffffffff);
 }
 
-//GAME INITS
 
+
+
+//GAME INITS
 void Engine::InitMainMenu()
 {
 	HR(D3DX11CreateShaderResourceViewFromFile(md3dDevice, L"Textures/motherboard.dds", 0, 0, &mFloorTexSRV, 0));
@@ -206,25 +245,34 @@ void Engine::InitMainMenu()
 	mTitleButt		= new Button(md3dDevice, L"Textures/title.dds",		140.0f, 50.0f);
 	mAboutButt		= new Button(md3dDevice, L"Textures/about.dds",		80.0f, 40.0f);
 
+	mCompiledButt	= new Button(md3dDevice, L"Textures/compiled.dds",	80.0f, 40.0f);
+	mBymeButt		= new Button(md3dDevice, L"Textures/byme.dds",		110.0f, 30.0f);
+	mBugsButt		= new Button(md3dDevice, L"Textures/bugs.dds",		80.0f, 40.0f);
+	mQuitButt		= new Button(md3dDevice, L"Textures/quit.dds",		80.0f, 40.0f);
+	mRestartButt	= new Button(md3dDevice, L"Textures/restart.dds",	80.0f, 40.0f);
+	mPausedButt		= new Button(md3dDevice, L"Textures/paused.dds",	80.0f, 40.0f);
+	mBackButt		= new Button(md3dDevice, L"Textures/back.dds",		80.0f, 40.0f);
+	mAboutMsgButt	= new Button(md3dDevice, L"Textures/aboutmsg.dds",	110.0f, 110.0f);
+
 	mPlayButt->SetPos(0.0f, 100.0f, -90.0f);
 	mPlayButt->Pitch(XM_PI / 4.5);
 
 	mSoundButt->SetPos(-140.0f, 100.0f, -90.0f);
 	mSoundButt->Pitch(XM_PI / 4.5);
 
-	mSOnButt->SetPos(-100.0f, 100.0f, -90.0f);
+	mSOnButt->SetPos(-85.0f, 100.0f, -90.0f);
 	mSOnButt->Pitch(XM_PI / 4.5);
 
-	mSOffButt->SetPos(-100.0f, 100.0f, -90.0f);
+	mSOffButt->SetPos(-85.0f, 100.0f, -90.0f);
 	mSOffButt->Pitch(XM_PI / 4.5);
 
 	mMusicButt->SetPos(-140.0f, 100.0f, -50.0f);
 	mMusicButt->Pitch(XM_PI / 4.5);
 
-	mMOnButt->SetPos(-100.0f, 100.0f, -50.0f);
+	mMOnButt->SetPos(-85.0f, 100.0f, -50.0f);
 	mMOnButt->Pitch(XM_PI / 4.5);
 
-	mMOffButt->SetPos(-100.0f, 100.0f, -50.0f);
+	mMOffButt->SetPos(-85.0f, 100.0f, -50.0f);
 	mMOffButt->Pitch(XM_PI / 4.5);
 
 	mTitleButt->SetPos(0.0f, 170.0f, -40.0f);
@@ -233,6 +281,31 @@ void Engine::InitMainMenu()
 	mAboutButt->SetPos(100.0f, 100.0f, -90.0f);
 	mAboutButt->Pitch(XM_PI / 4.5);
 	
+
+
+	mBymeButt->SetPos(-130.0f, 100.0f, -90.0f);
+	mBymeButt->Pitch(XM_PI / 4.5);
+
+	mRestartButt->SetPos(-100.0f, 100.0f, -90.0f);
+	mRestartButt->Pitch(XM_PI / 4.5);
+
+	mPausedButt->SetPos(0.0f, 150.0f, -90.0f);
+	mPausedButt->Pitch(XM_PI / 4.5);
+
+	mBackButt->SetPos(120.0f, 100.0f, -90.0f);
+	mBackButt->Pitch(XM_PI / 4.5);
+
+	mAboutMsgButt->SetPos(0.0f, 160.0f, -115.0f);
+	mAboutMsgButt->Pitch(XM_PI / 4.5);
+
+	mBugsButt->SetPos(-100.0f, 100.0f, -90.0f);
+	mBugsButt->Pitch(XM_PI / 4.5);
+
+	mCompiledButt->SetPos(-100.0f, 150.0f, -10.0f);
+	mCompiledButt->Pitch(XM_PI / 4.5);
+
+	mQuitButt->SetPos(100.0f, 100.0f, -90.0f);
+	mQuitButt->Pitch(XM_PI / 4.5);
 
 	GeometryGenerator geoGen;
 
@@ -256,30 +329,44 @@ void Engine::InitMainMenu()
 	mGridVertexOffset = 0; // FIRST OBJECT FOR OFFSET
 
 	mPlayButt->SetVertexOffset(grid.Vertices.size());
-	mSoundButt->SetVertexOffset(mPlayButt->GetVertOffset()  + mPlayButt->mGrid.Vertices.size());
-	mMusicButt->SetVertexOffset(mSoundButt->GetVertOffset() + mSoundButt->mGrid.Vertices.size());
-	mSOnButt->SetVertexOffset(mMusicButt->GetVertOffset()   + mMusicButt->mGrid.Vertices.size());
-	mSOffButt->SetVertexOffset(mSOnButt->GetVertOffset()	+ mSOnButt->mGrid.Vertices.size());
-	mMOnButt->SetVertexOffset(mSOffButt->GetVertOffset()	+ mSOffButt->mGrid.Vertices.size());
-	mMOffButt->SetVertexOffset(mMOnButt->GetVertOffset()	+ mMOnButt->mGrid.Vertices.size());
-	mTitleButt->SetVertexOffset(mMOffButt->GetVertOffset()  + mMOffButt->mGrid.Vertices.size());
-	mAboutButt->SetVertexOffset(mTitleButt->GetVertOffset() + mTitleButt->mGrid.Vertices.size());
+	mSoundButt->SetVertexOffset(mPlayButt->GetVertOffset()		+ mPlayButt->mGrid.Vertices.size());
+	mMusicButt->SetVertexOffset(mSoundButt->GetVertOffset()		+ mSoundButt->mGrid.Vertices.size());
+	mSOnButt->SetVertexOffset(mMusicButt->GetVertOffset()		+ mMusicButt->mGrid.Vertices.size());
+	mSOffButt->SetVertexOffset(mSOnButt->GetVertOffset()		+ mSOnButt->mGrid.Vertices.size());
+	mMOnButt->SetVertexOffset(mSOffButt->GetVertOffset()		+ mSOffButt->mGrid.Vertices.size());
+	mMOffButt->SetVertexOffset(mMOnButt->GetVertOffset()		+ mMOnButt->mGrid.Vertices.size());
+	mTitleButt->SetVertexOffset(mMOffButt->GetVertOffset()		+ mMOffButt->mGrid.Vertices.size());
+	mAboutButt->SetVertexOffset(mTitleButt->GetVertOffset()		+ mTitleButt->mGrid.Vertices.size());
+	mCompiledButt->SetVertexOffset(mAboutButt->GetVertOffset()	+ mAboutButt->mGrid.Vertices.size());
+	mBymeButt->SetVertexOffset(mCompiledButt->GetVertOffset()	+ mCompiledButt->mGrid.Vertices.size());
+	mBugsButt->SetVertexOffset(mBymeButt->GetVertOffset()		+ mBymeButt->mGrid.Vertices.size());
+	mQuitButt->SetVertexOffset(mBugsButt->GetVertOffset()		+ mBugsButt->mGrid.Vertices.size());
+	mRestartButt->SetVertexOffset(mQuitButt->GetVertOffset()	+ mQuitButt->mGrid.Vertices.size());
+	mPausedButt->SetVertexOffset(mRestartButt->GetVertOffset()	+ mRestartButt->mGrid.Vertices.size());
+	mBackButt->SetVertexOffset(mPausedButt->GetVertOffset()		+ mPausedButt->mGrid.Vertices.size());
+	mAboutMsgButt->SetVertexOffset(mBackButt->GetVertOffset()	+ mBackButt->mGrid.Vertices.size());
 
 	// Cache the index count of each object.
 	mGridIndexCount = grid.Indices.size();
 
 	mGridIndexOffset = 0;
 	mPlayButt->SetIndexOffset(grid.Indices.size());
-	mSoundButt->SetIndexOffset(		mPlayButt->GetIndOffset()	+ mPlayButt->mGrid.Indices.size());
-	mMusicButt->SetIndexOffset(		mSoundButt->GetIndOffset()	+ mSoundButt->mGrid.Indices.size());
-	mSOnButt->SetIndexOffset(		mMusicButt->GetIndOffset()	+ mMusicButt->mGrid.Indices.size());
-	mSOffButt->SetIndexOffset(		mSOnButt->GetIndOffset()	+ mSOnButt->mGrid.Indices.size());
-	mMOnButt->SetIndexOffset(		mSOffButt->GetIndOffset()	+ mSOffButt->mGrid.Indices.size());
-	mMOffButt->SetIndexOffset(		mMOnButt->GetIndOffset()	+ mMOnButt->mGrid.Indices.size());
-	mTitleButt->SetIndexOffset(		mMOffButt->GetIndOffset()	+ mMOffButt->mGrid.Indices.size());
-	mAboutButt->SetIndexOffset(		mTitleButt->GetIndOffset()	+ mTitleButt->mGrid.Indices.size());
-
-
+	mSoundButt->SetIndexOffset(		mPlayButt->GetIndOffset()		+ mPlayButt->mGrid.Indices.size());
+	mMusicButt->SetIndexOffset(		mSoundButt->GetIndOffset()		+ mSoundButt->mGrid.Indices.size());
+	mSOnButt->SetIndexOffset(		mMusicButt->GetIndOffset()		+ mMusicButt->mGrid.Indices.size());
+	mSOffButt->SetIndexOffset(		mSOnButt->GetIndOffset()		+ mSOnButt->mGrid.Indices.size());
+	mMOnButt->SetIndexOffset(		mSOffButt->GetIndOffset()		+ mSOffButt->mGrid.Indices.size());
+	mMOffButt->SetIndexOffset(		mMOnButt->GetIndOffset()		+ mMOnButt->mGrid.Indices.size());
+	mTitleButt->SetIndexOffset(		mMOffButt->GetIndOffset()		+ mMOffButt->mGrid.Indices.size());
+	mAboutButt->SetIndexOffset(		mTitleButt->GetIndOffset()		+ mTitleButt->mGrid.Indices.size());
+	mCompiledButt->SetIndexOffset(	mAboutButt->GetIndOffset()		+ mAboutButt->mGrid.Indices.size());
+	mBymeButt->SetIndexOffset(		mCompiledButt->GetIndOffset()	+ mCompiledButt->mGrid.Indices.size());
+	mBugsButt->SetIndexOffset(		mBymeButt->GetIndOffset()		+ mBymeButt->mGrid.Indices.size());
+	mQuitButt->SetIndexOffset(		mBugsButt->GetIndOffset()		+ mBugsButt->mGrid.Indices.size());
+	mRestartButt->SetIndexOffset(	mQuitButt->GetIndOffset()		+ mQuitButt->mGrid.Indices.size());
+	mPausedButt->SetIndexOffset(	mRestartButt->GetIndOffset()	+ mRestartButt->mGrid.Indices.size());
+	mBackButt->SetIndexOffset(		mPausedButt->GetIndOffset()		+ mPausedButt->mGrid.Indices.size());
+	mAboutMsgButt->SetIndexOffset(	mBackButt->GetIndOffset()		+ mBackButt->mGrid.Indices.size());
 
 	UINT totalVertexCount = grid.Vertices.size()
 		+ mPlayButt->mGrid.Vertices.size()
@@ -290,8 +377,16 @@ void Engine::InitMainMenu()
 		+ mMOnButt->mGrid.Vertices.size()
 		+ mMOffButt->mGrid.Vertices.size()
 		+ mTitleButt->mGrid.Vertices.size()
-		+ mAboutButt->mGrid.Vertices.size();
-	
+		+ mAboutButt->mGrid.Vertices.size()
+		+ mCompiledButt->mGrid.Vertices.size()
+		+ mBymeButt->mGrid.Vertices.size()
+		+ mBugsButt->mGrid.Vertices.size()
+		+ mQuitButt->mGrid.Vertices.size()
+		+ mRestartButt->mGrid.Vertices.size()
+		+ mPausedButt->mGrid.Vertices.size()
+		+ mBackButt->mGrid.Vertices.size()
+		+ mAboutMsgButt->mGrid.Vertices.size();
+
 	UINT totalIndexCount = mGridIndexCount
 		+ mPlayButt->mIndexCount
 		+ mSoundButt->mIndexCount
@@ -301,7 +396,15 @@ void Engine::InitMainMenu()
 		+ mMOnButt->mIndexCount
 		+ mMOffButt->mIndexCount
 		+ mTitleButt->mIndexCount
-		+ mAboutButt->mIndexCount;
+		+ mAboutButt->mIndexCount
+		+ mCompiledButt->mIndexCount
+		+ mBymeButt->mIndexCount
+		+ mBugsButt->mIndexCount
+		+ mQuitButt->mIndexCount
+		+ mRestartButt->mIndexCount
+		+ mPausedButt->mIndexCount
+		+ mBackButt->mIndexCount
+		+ mAboutMsgButt->mIndexCount;
 
 	//
 	// Extract the vertex elements we are interested in and pack the
@@ -316,216 +419,24 @@ void Engine::InitMainMenu()
 		vertices[k].Tex = grid.Vertices[i].TexC;
 	}
 
-
 //BUTTONS*******************************************************************
-	XMFLOAT3 vMinf3(+MathHelper::Infinity, +MathHelper::Infinity, +MathHelper::Infinity);
-	XMFLOAT3 vMaxf3(-MathHelper::Infinity, -MathHelper::Infinity, -MathHelper::Infinity);
-
-	XMVECTOR vMin = XMLoadFloat3(&vMinf3);
-	XMVECTOR vMax = XMLoadFloat3(&vMaxf3);
-
-	for (size_t i = 0; i < mPlayButt->mGrid.Vertices.size(); ++i, ++k)
-	{
-		vertices[k].Pos		= mPlayButt->mGrid.Vertices[i].Position;
-		vertices[k].Normal	= mPlayButt->mGrid.Vertices[i].Normal;
-		vertices[k].Tex		= mPlayButt->mGrid.Vertices[i].TexC;
-
-		//Copy Into The Buttons Messh For Future Collision Check 
-		mPlayButt->mMeshVertices[i].Pos		= mPlayButt->mGrid.Vertices[i].Position;
-		mPlayButt->mMeshVertices[i].Normal	= mPlayButt->mGrid.Vertices[i].Normal;
-
-		XMVECTOR P = XMLoadFloat3(&mPlayButt->mMeshVertices[i].Pos);
-
-		vMin = XMVectorMin(vMin, P);
-		vMax = XMVectorMax(vMax, P);
-	}
-	XMStoreFloat3(&mPlayButt->mMeshBox.Center, 0.5f*(vMin + vMax));
-	XMStoreFloat3(&mPlayButt->mMeshBox.Extents, 0.5f*(vMax - vMin));
-
-//SOUNDBUTT*******************************************************************
-	 vMin = XMLoadFloat3(&vMinf3);
-	 vMax = XMLoadFloat3(&vMaxf3);
-
-	for (size_t i = 0; i < mSoundButt->mGrid.Vertices.size(); ++i, ++k)
-	{
-		vertices[k].Pos = mSoundButt->mGrid.Vertices[i].Position;
-		vertices[k].Normal = mSoundButt->mGrid.Vertices[i].Normal;
-		vertices[k].Tex = mSoundButt->mGrid.Vertices[i].TexC;
-
-		//Copy Into The Buttons Messh For Future Collision Check 
-		mSoundButt->mMeshVertices[i].Pos = mSoundButt->mGrid.Vertices[i].Position;
-		mSoundButt->mMeshVertices[i].Normal = mSoundButt->mGrid.Vertices[i].Normal;
-
-		XMVECTOR P = XMLoadFloat3(&mSoundButt->mMeshVertices[i].Pos);
-
-		vMin = XMVectorMin(vMin, P);
-		vMax = XMVectorMax(vMax, P);
-	}
-	XMStoreFloat3(&mSoundButt->mMeshBox.Center, 0.5f*(vMin + vMax));
-	XMStoreFloat3(&mSoundButt->mMeshBox.Extents, 0.5f*(vMax - vMin));
-
-//MUSICBUTT*******************************************************************
-	 vMin = XMLoadFloat3(&vMinf3);
-	 vMax = XMLoadFloat3(&vMaxf3);
-
-	for (size_t i = 0; i < mMusicButt->mGrid.Vertices.size(); ++i, ++k)
-	{
-		vertices[k].Pos = mMusicButt->mGrid.Vertices[i].Position;
-		vertices[k].Normal = mMusicButt->mGrid.Vertices[i].Normal;
-		vertices[k].Tex = mMusicButt->mGrid.Vertices[i].TexC;
-
-		//Copy Into The Buttons Messh For Future Collision Check 
-		mMusicButt->mMeshVertices[i].Pos = mMusicButt->mGrid.Vertices[i].Position;
-		mMusicButt->mMeshVertices[i].Normal = mMusicButt->mGrid.Vertices[i].Normal;
-
-		XMVECTOR P = XMLoadFloat3(&mMusicButt->mMeshVertices[i].Pos);
-
-		vMin = XMVectorMin(vMin, P);
-		vMax = XMVectorMax(vMax, P);
-	}
-	XMStoreFloat3(&mMusicButt->mMeshBox.Center, 0.5f*(vMin + vMax));
-	XMStoreFloat3(&mMusicButt->mMeshBox.Extents, 0.5f*(vMax - vMin));
-
-//SOUNDONBUTT*******************************************************************
-	
-		 vMin = XMLoadFloat3(&vMinf3);
-		 vMax = XMLoadFloat3(&vMaxf3);
-	
-		for (size_t i = 0; i < mSOnButt->mGrid.Vertices.size(); ++i, ++k)
-		{
-			vertices[k].Pos = mSOnButt->mGrid.Vertices[i].Position;
-			vertices[k].Normal = mSOnButt->mGrid.Vertices[i].Normal;
-			vertices[k].Tex = mSOnButt->mGrid.Vertices[i].TexC;
-	
-			//Copy Into The Buttons Messh For Future Collision Check 
-			mSOnButt->mMeshVertices[i].Pos = mSOnButt->mGrid.Vertices[i].Position;
-			mSOnButt->mMeshVertices[i].Normal = mSOnButt->mGrid.Vertices[i].Normal;
-	
-			XMVECTOR P = XMLoadFloat3(&mSOnButt->mMeshVertices[i].Pos);
-	
-			vMin = XMVectorMin(vMin, P);
-			vMax = XMVectorMax(vMax, P);
-		}
-		XMStoreFloat3(&mSOnButt->mMeshBox.Center, 0.5f*(vMin + vMax));
-		XMStoreFloat3(&mSOnButt->mMeshBox.Extents, 0.5f*(vMax - vMin));
-	
-
-//SOUNDOFFBUTT*******************************************************************
-
-		vMin = XMLoadFloat3(&vMinf3);
-		vMax = XMLoadFloat3(&vMaxf3);
-	
-		for (size_t i = 0; i < mSOffButt->mGrid.Vertices.size(); ++i, ++k)
-		{
-			vertices[k].Pos = mSOffButt->mGrid.Vertices[i].Position;
-			vertices[k].Normal = mSOffButt->mGrid.Vertices[i].Normal;
-			vertices[k].Tex = mSOffButt->mGrid.Vertices[i].TexC;
-	
-			//Copy Into The Buttons Messh For Future Collision Check 
-			mSOffButt->mMeshVertices[i].Pos = mSOffButt->mGrid.Vertices[i].Position;
-			mSOffButt->mMeshVertices[i].Normal = mSOffButt->mGrid.Vertices[i].Normal;
-	
-			XMVECTOR P = XMLoadFloat3(&mSOffButt->mMeshVertices[i].Pos);
-	
-			vMin = XMVectorMin(vMin, P);
-			vMax = XMVectorMax(vMax, P);
-		}
-		XMStoreFloat3(&mSOffButt->mMeshBox.Center, 0.5f*(vMin + vMax));
-		XMStoreFloat3(&mSOffButt->mMeshBox.Extents, 0.5f*(vMax - vMin));
-	
-
-//MUSICONBUTT*******************************************************************
-	vMin = XMLoadFloat3(&vMinf3);
-	vMax = XMLoadFloat3(&vMaxf3);
-
-	for (size_t i = 0; i < mMOnButt->mGrid.Vertices.size(); ++i, ++k)
-	{
-		vertices[k].Pos = mMOnButt->mGrid.Vertices[i].Position;
-		vertices[k].Normal = mMOnButt->mGrid.Vertices[i].Normal;
-		vertices[k].Tex = mMOnButt->mGrid.Vertices[i].TexC;
-
-		//Copy Into The Buttons Messh For Future Collision Check 
-		mMOnButt->mMeshVertices[i].Pos = mMOnButt->mGrid.Vertices[i].Position;
-		mMOnButt->mMeshVertices[i].Normal = mMOnButt->mGrid.Vertices[i].Normal;
-
-		XMVECTOR P = XMLoadFloat3(&mMOnButt->mMeshVertices[i].Pos);
-
-		vMin = XMVectorMin(vMin, P);
-		vMax = XMVectorMax(vMax, P);
-	}
-	XMStoreFloat3(&mMOnButt->mMeshBox.Center, 0.5f*(vMin + vMax));
-	XMStoreFloat3(&mMOnButt->mMeshBox.Extents, 0.5f*(vMax - vMin));
-
-//MUSICOFFBUTT*******************************************************************
-	vMin = XMLoadFloat3(&vMinf3);
-	vMax = XMLoadFloat3(&vMaxf3);
-
-	for (size_t i = 0; i < mMOffButt->mGrid.Vertices.size(); ++i, ++k)
-	{
-		vertices[k].Pos = mMOffButt->mGrid.Vertices[i].Position;
-		vertices[k].Normal = mMOffButt->mGrid.Vertices[i].Normal;
-		vertices[k].Tex = mMOffButt->mGrid.Vertices[i].TexC;
-
-		//Copy Into The Buttons Messh For Future Collision Check 
-		mMOffButt->mMeshVertices[i].Pos = mMOffButt->mGrid.Vertices[i].Position;
-		mMOffButt->mMeshVertices[i].Normal = mMOffButt->mGrid.Vertices[i].Normal;
-
-		XMVECTOR P = XMLoadFloat3(&mMOffButt->mMeshVertices[i].Pos);
-
-		vMin = XMVectorMin(vMin, P);
-		vMax = XMVectorMax(vMax, P);
-	}
-	XMStoreFloat3(&mMOffButt->mMeshBox.Center, 0.5f*(vMin + vMax));
-	XMStoreFloat3(&mMOffButt->mMeshBox.Extents, 0.5f*(vMax - vMin));
-
-//mTitleButt*******************************************************************
-	vMin = XMLoadFloat3(&vMinf3);
-	vMax = XMLoadFloat3(&vMaxf3);
-
-	for (size_t i = 0; i < mTitleButt->mGrid.Vertices.size(); ++i, ++k)
-	{
-		vertices[k].Pos = mTitleButt->mGrid.Vertices[i].Position;
-		vertices[k].Normal = mTitleButt->mGrid.Vertices[i].Normal;
-		vertices[k].Tex = mTitleButt->mGrid.Vertices[i].TexC;
-
-		//Copy Into The Buttons Messh For Future Collision Check 
-		mTitleButt->mMeshVertices[i].Pos = mTitleButt->mGrid.Vertices[i].Position;
-		mTitleButt->mMeshVertices[i].Normal = mTitleButt->mGrid.Vertices[i].Normal;
-
-		XMVECTOR P = XMLoadFloat3(&mTitleButt->mMeshVertices[i].Pos);
-
-		vMin = XMVectorMin(vMin, P);
-		vMax = XMVectorMax(vMax, P);
-	}
-	XMStoreFloat3(&mTitleButt->mMeshBox.Center, 0.5f*(vMin + vMax));
-	XMStoreFloat3(&mTitleButt->mMeshBox.Extents, 0.5f*(vMax - vMin));
-
-
-//mAboutButt*******************************************************************
-	vMin = XMLoadFloat3(&vMinf3);
-	vMax = XMLoadFloat3(&vMaxf3);
-
-	for (size_t i = 0; i < mAboutButt->mGrid.Vertices.size(); ++i, ++k)
-	{
-		vertices[k].Pos = mAboutButt->mGrid.Vertices[i].Position;
-		vertices[k].Normal = mAboutButt->mGrid.Vertices[i].Normal;
-		vertices[k].Tex = mAboutButt->mGrid.Vertices[i].TexC;
-
-		//Copy Into The Buttons Messh For Future Collision Check 
-		mAboutButt->mMeshVertices[i].Pos = mAboutButt->mGrid.Vertices[i].Position;
-		mAboutButt->mMeshVertices[i].Normal = mAboutButt->mGrid.Vertices[i].Normal;
-
-		XMVECTOR P = XMLoadFloat3(&mAboutButt->mMeshVertices[i].Pos);
-
-		vMin = XMVectorMin(vMin, P);
-		vMax = XMVectorMax(vMax, P);
-	}
-	XMStoreFloat3(&mAboutButt->mMeshBox.Center, 0.5f*(vMin + vMax));
-	XMStoreFloat3(&mAboutButt->mMeshBox.Extents, 0.5f*(vMax - vMin));
-
-
-
-
+	mPlayButt->LoadVertData(	vertices, k);
+	mSoundButt->LoadVertData(	vertices, k);
+	mMusicButt->LoadVertData(	vertices, k);
+	mSOnButt->LoadVertData(		vertices, k);
+	mSOffButt->LoadVertData(	vertices, k);
+	mMOnButt->LoadVertData(		vertices, k);
+	mMOffButt->LoadVertData(	vertices, k);
+	mTitleButt->LoadVertData(	vertices, k);
+	mAboutButt->LoadVertData(	vertices, k);
+	mCompiledButt->LoadVertData(vertices, k);
+	mBymeButt->LoadVertData(	vertices, k);
+	mBugsButt->LoadVertData(	vertices, k);
+	mQuitButt->LoadVertData(	vertices, k);
+	mRestartButt->LoadVertData(	vertices, k);
+	mPausedButt->LoadVertData(	vertices, k);
+	mBackButt->LoadVertData(	vertices, k);
+	mAboutMsgButt->LoadVertData(vertices, k);
 
 	//****************************************************************************
 
@@ -555,6 +466,14 @@ void Engine::InitMainMenu()
 	indices.insert(indices.end(), mMOffButt->mGrid.Indices.begin(), mMOffButt->mGrid.Indices.end());
 	indices.insert(indices.end(), mTitleButt->mGrid.Indices.begin(), mTitleButt->mGrid.Indices.end());
 	indices.insert(indices.end(), mAboutButt->mGrid.Indices.begin(), mAboutButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mCompiledButt->mGrid.Indices.begin(), mCompiledButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mBymeButt->mGrid.Indices.begin(), mBymeButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mBugsButt->mGrid.Indices.begin(), mBugsButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mQuitButt->mGrid.Indices.begin(), mQuitButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mRestartButt->mGrid.Indices.begin(), mRestartButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mPausedButt->mGrid.Indices.begin(), mPausedButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mBackButt->mGrid.Indices.begin(), mBackButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mAboutMsgButt->mGrid.Indices.begin(), mAboutMsgButt->mGrid.Indices.end());
 
 	//CREATE INDEX BUFFER
 	D3D11_BUFFER_DESC ibd;
@@ -628,144 +547,18 @@ void Engine::DrawMainMenu()
 		activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
 		md3dImmediateContext->DrawIndexed(mGridIndexCount, mGridIndexOffset, mGridVertexOffset);
 
-		//DRAW BUTTS
-//PLAY BUTTON****************************************************************************
-		world = XMLoadFloat4x4(&mPlayButt->mWorld);
-		worldInvTranspose = MathHelper::InverseTranspose(world);
-		worldViewProj = world*view*proj;
-		Effects::BasicFX->SetWorld(world);
-		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
-		Effects::BasicFX->SetWorldViewProj(worldViewProj);
-		Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
-		Effects::BasicFX->SetMaterial(mPlayButt->mMat);
-		Effects::BasicFX->SetDiffuseMap(mPlayButt->mTexSRV);
+//DRAW BUTTS
 
-		activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-		md3dImmediateContext->DrawIndexed(mPlayButt->mIndexCount, mPlayButt->GetIndOffset(), mPlayButt->GetVertOffset());
+		mPlayButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+		mSoundButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+		mMusicButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+		mTitleButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+		mAboutButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
 
-//SOUND BUTTON****************************************************************************
-		world = XMLoadFloat4x4(&mSoundButt->mWorld);
-		worldInvTranspose = MathHelper::InverseTranspose(world);
-		worldViewProj = world*view*proj;
-		Effects::BasicFX->SetWorld(world);
-		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
-		Effects::BasicFX->SetWorldViewProj(worldViewProj);
-		Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
-		Effects::BasicFX->SetMaterial(mSoundButt->mMat);
-		Effects::BasicFX->SetDiffuseMap(mSoundButt->mTexSRV);
-
-		activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-		md3dImmediateContext->DrawIndexed(mSoundButt->mIndexCount, mSoundButt->GetIndOffset(), mSoundButt->GetVertOffset());
-
-//mMusicButt****************************************************************************
-		world = XMLoadFloat4x4(&mMusicButt->mWorld);
-		worldInvTranspose = MathHelper::InverseTranspose(world);
-		worldViewProj = world*view*proj;
-		Effects::BasicFX->SetWorld(world);
-		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
-		Effects::BasicFX->SetWorldViewProj(worldViewProj);
-		Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
-		Effects::BasicFX->SetMaterial(mMusicButt->mMat);
-		Effects::BasicFX->SetDiffuseMap(mMusicButt->mTexSRV);
-
-		activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-		md3dImmediateContext->DrawIndexed(mMusicButt->mIndexCount, mMusicButt->GetIndOffset(), mMusicButt->GetVertOffset());
-
-//mSOnButt****************************************************************************
-		if(*StateMachine::pSoundState == SoundState::SOUNDON)
-		{
-			world = XMLoadFloat4x4(&mSOnButt->mWorld);
-			worldInvTranspose = MathHelper::InverseTranspose(world);
-			worldViewProj = world*view*proj;
-			Effects::BasicFX->SetWorld(world);
-			Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
-			Effects::BasicFX->SetWorldViewProj(worldViewProj);
-			Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
-			Effects::BasicFX->SetMaterial(mSOnButt->mMat);
-			Effects::BasicFX->SetDiffuseMap(mSOnButt->mTexSRV);
-	
-			activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-			md3dImmediateContext->DrawIndexed(mSOnButt->mIndexCount, mSOnButt->GetIndOffset(), mSOnButt->GetVertOffset());
-		}
-
-//mSOffButt****************************************************************************
-		if (*StateMachine::pSoundState == SoundState::SOUNDOFF)
-		{
-			world = XMLoadFloat4x4(&mSOffButt->mWorld);
-			worldInvTranspose = MathHelper::InverseTranspose(world);
-			worldViewProj = world*view*proj;
-			Effects::BasicFX->SetWorld(world);
-			Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
-			Effects::BasicFX->SetWorldViewProj(worldViewProj);
-			Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
-			Effects::BasicFX->SetMaterial(mSOffButt->mMat);
-			Effects::BasicFX->SetDiffuseMap(mSOffButt->mTexSRV);
-	
-			activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-			md3dImmediateContext->DrawIndexed(mSOffButt->mIndexCount, mSOffButt->GetIndOffset(), mSOffButt->GetVertOffset());
-		}
-
-//mMOnButt****************************************************************************
-		if (*StateMachine::pMusicState == MusicState::MUSICON)
-		{
-			world = XMLoadFloat4x4(&mMOnButt->mWorld);
-			worldInvTranspose = MathHelper::InverseTranspose(world);
-			worldViewProj = world*view*proj;
-			Effects::BasicFX->SetWorld(world);
-			Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
-			Effects::BasicFX->SetWorldViewProj(worldViewProj);
-			Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
-			Effects::BasicFX->SetMaterial(mMOnButt->mMat);
-			Effects::BasicFX->SetDiffuseMap(mMOnButt->mTexSRV);
-	
-			activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-			md3dImmediateContext->DrawIndexed(mMOnButt->mIndexCount, mMOnButt->GetIndOffset(), mMOnButt->GetVertOffset());
-		}
-
-//mSOffButt****************************************************************************
-		if (*StateMachine::pMusicState == MusicState::MUSICOFF)
-		{
-			world = XMLoadFloat4x4(&mSOffButt->mWorld);
-			worldInvTranspose = MathHelper::InverseTranspose(world);
-			worldViewProj = world*view*proj;
-			Effects::BasicFX->SetWorld(world);
-			Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
-			Effects::BasicFX->SetWorldViewProj(worldViewProj);
-			Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
-			Effects::BasicFX->SetMaterial(mSOffButt->mMat);
-			Effects::BasicFX->SetDiffuseMap(mSOffButt->mTexSRV);
-	
-			activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-			md3dImmediateContext->DrawIndexed(mSOffButt->mIndexCount, mSOffButt->GetIndOffset(), mSOffButt->GetVertOffset());
-		}
-
-//mTitleButt****************************************************************************
-		world = XMLoadFloat4x4(&mTitleButt->mWorld);
-		worldInvTranspose = MathHelper::InverseTranspose(world);
-		worldViewProj = world*view*proj;
-		Effects::BasicFX->SetWorld(world);
-		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
-		Effects::BasicFX->SetWorldViewProj(worldViewProj);
-		Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
-		Effects::BasicFX->SetMaterial(mTitleButt->mMat);
-		Effects::BasicFX->SetDiffuseMap(mTitleButt->mTexSRV);
-
-		activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-		md3dImmediateContext->DrawIndexed(mTitleButt->mIndexCount, mTitleButt->GetIndOffset(), mTitleButt->GetVertOffset());
-
-//mAboutButt****************************************************************************
-		world = XMLoadFloat4x4(&mAboutButt->mWorld);
-		worldInvTranspose = MathHelper::InverseTranspose(world);
-		worldViewProj = world*view*proj;
-		Effects::BasicFX->SetWorld(world);
-		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
-		Effects::BasicFX->SetWorldViewProj(worldViewProj);
-		Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
-		Effects::BasicFX->SetMaterial(mAboutButt->mMat);
-		Effects::BasicFX->SetDiffuseMap(mAboutButt->mTexSRV);
-
-		activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-		md3dImmediateContext->DrawIndexed(mAboutButt->mIndexCount, mAboutButt->GetIndOffset(), mAboutButt->GetVertOffset());
+		if (*StateMachine::pSoundState == SoundState::SOUNDON){mSOnButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);}
+		if (*StateMachine::pSoundState == SoundState::SOUNDOFF){mSOffButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);}
+		if (*StateMachine::pMusicState == MusicState::MUSICON){mMOnButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);}
+		if (*StateMachine::pMusicState == MusicState::MUSICOFF){mMOffButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);}
 
 		// 		mSoundButt
 		// 		mMusicButt
@@ -777,16 +570,187 @@ void Engine::DrawMainMenu()
 		// 		mAboutButt
 	}
 
+	//SHADOWS *******************************************************************************************************
+
+	//set shadow states
+	float blendFactor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	md3dImmediateContext->OMSetBlendState(RenderStates::TransparentBS, blendFactor, 0xffffffff);
+	md3dImmediateContext->OMSetDepthStencilState(RenderStates::NoDoubleBlendDSS, 0); // changing 0 means overlaping draws
+	md3dImmediateContext->IASetVertexBuffers(0, 1, &mShapesVB, &stride, &offset);
+	md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
+
+	//Set Shadow Constants
+	XMVECTOR shadowPlane = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f); // xz plane
+	XMVECTOR toMainLight = -XMLoadFloat3(&mDirLights[0].Direction);
+	XMMATRIX S = XMMatrixShadow(shadowPlane, toMainLight);
+	float xOffSet = 43.0f; float zOffSet = 90.0f; float yOffSet = 0.1f; float sScale = 0.15f;
+
+	mPlayButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+	mSoundButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+	mMusicButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+	mSOnButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+	mSOffButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+	mMOnButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+	mMOffButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+	mTitleButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+	mAboutButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+
+	// Restore default states.
+	RestoreStates();
+
 	if(!fullyLoaded)fullyLoaded = true;
+}
+void Engine::DrawAbout()
+{
+	UINT stride = sizeof(Vertex::Basic32);
+	UINT offset = 0;
+
+	mCam.UpdateViewMatrix();
+
+	XMMATRIX view = mCam.View();
+	XMMATRIX proj = mCam.Proj();
+	XMMATRIX viewProj = mCam.ViewProj();
+
+	// Set per frame constants.
+	Effects::BasicFX->SetDirLights(mDirLights);
+	Effects::BasicFX->SetEyePosW(mCam.GetPosition());
+
+	// Figure out which technique to use.  Skull does not have texture coordinates,
+	// so we need a separate technique for it.
+	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light1TexAlphaClipTech;
+	D3DX11_TECHNIQUE_DESC techDesc;
+	activeTexTech->GetDesc(&techDesc);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		md3dImmediateContext->IASetVertexBuffers(0, 1, &mShapesVB, &stride, &offset);
+		md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
+
+		// Draw the grid.
+		XMMATRIX world = XMLoadFloat4x4(&mGridWorld);
+		XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
+		XMMATRIX worldViewProj = world*view*proj;
+
+		Effects::BasicFX->SetWorld(world);
+		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
+		Effects::BasicFX->SetWorldViewProj(worldViewProj);
+		Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
+		Effects::BasicFX->SetMaterial(mGridMat);
+		Effects::BasicFX->SetDiffuseMap(mFloorTexSRV);
+
+		activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
+		md3dImmediateContext->DrawIndexed(mGridIndexCount, mGridIndexOffset, mGridVertexOffset);
+
+		//DRAW BUTTS
+
+		mAboutMsgButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+		mTitleButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+		mBackButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+		mBymeButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+
+
+	}
+
+	//SHADOWS *******************************************************************************************************
+
+	//set shadow states
+	float blendFactor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	md3dImmediateContext->OMSetBlendState(RenderStates::TransparentBS, blendFactor, 0xffffffff);
+	md3dImmediateContext->OMSetDepthStencilState(RenderStates::NoDoubleBlendDSS, 0); // changing 0 means overlaping draws
+	md3dImmediateContext->IASetVertexBuffers(0, 1, &mShapesVB, &stride, &offset);
+	md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
+
+	//Set Shadow Constants
+	XMVECTOR shadowPlane = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f); // xz plane
+	XMVECTOR toMainLight = -XMLoadFloat3(&mDirLights[0].Direction);
+	XMMATRIX S = XMMatrixShadow(shadowPlane, toMainLight);
+	float xOffSet = 43.0f; float zOffSet = 90.0f; float yOffSet = 0.1f; float sScale = 0.1f;
+
+	mAboutMsgButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+	mTitleButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+	mBackButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+	mBymeButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+
+	// Restore default states.
+	RestoreStates();
 }
 void Engine::DrawPaused()
 {
+	UINT stride = sizeof(Vertex::Basic32);
+	UINT offset = 0;
 
+	mCam.UpdateViewMatrix();
+
+	XMMATRIX view = mCam.View();
+	XMMATRIX proj = mCam.Proj();
+	XMMATRIX viewProj = mCam.ViewProj();
+
+	// Set per frame constants.
+	Effects::BasicFX->SetDirLights(mDirLights);
+	Effects::BasicFX->SetEyePosW(mCam.GetPosition());
+
+	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light1TexAlphaClipTech;
+	D3DX11_TECHNIQUE_DESC techDesc;
+	activeTexTech->GetDesc(&techDesc);
+	md3dImmediateContext->IASetVertexBuffers(0, 1, &mShapesVB, &stride, &offset);
+	md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		mPausedButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+		mQuitButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+		mRestartButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+	}
+
+	RestoreStates();
+	DrawGameOn();
 }
 void Engine::DrawGameOn()
 {
-	md3dImmediateContext->RSSetState(0);
-	mSky->Draw(md3dImmediateContext, mCam);
+	UINT stride = sizeof(Vertex::Basic32);
+	UINT offset = 0;
+
+	mCam.UpdateViewMatrix();
+
+	XMMATRIX view = mCam.View();
+	XMMATRIX proj = mCam.Proj();
+	XMMATRIX viewProj = mCam.ViewProj();
+
+	// Set per frame constants.
+	Effects::BasicFX->SetDirLights(mDirLights);
+	Effects::BasicFX->SetEyePosW(mCam.GetPosition());
+
+	// Figure out which technique to use.  Skull does not have texture coordinates,
+	// so we need a separate technique for it.
+	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light1TexAlphaClipTech;
+	D3DX11_TECHNIQUE_DESC techDesc;
+	activeTexTech->GetDesc(&techDesc);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		md3dImmediateContext->IASetVertexBuffers(0, 1, &mShapesVB, &stride, &offset);
+		md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
+
+		// Draw the grid.
+		XMMATRIX world = XMLoadFloat4x4(&mGridWorld);
+		XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
+		XMMATRIX worldViewProj = world*view*proj;
+
+		Effects::BasicFX->SetWorld(world);
+		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
+		Effects::BasicFX->SetWorldViewProj(worldViewProj);
+		Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
+		Effects::BasicFX->SetMaterial(mGridMat);
+		Effects::BasicFX->SetDiffuseMap(mFloorTexSRV);
+
+		activeTexTech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
+		md3dImmediateContext->DrawIndexed(mGridIndexCount, mGridIndexOffset, mGridVertexOffset);
+
+		//DRAW BUTTS
+
+		mBugsButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+		mCompiledButt->Draw(activeTexTech, md3dImmediateContext, p, mCam);
+
+	}
+
+	RestoreStates();
 }
 void Engine::DrawWin()
 {
@@ -806,7 +770,18 @@ void Engine::OnMouseDown(WPARAM btnState, int x, int y)
 	{
 		mLastMousePos.x = x;
 		mLastMousePos.y = y;
-		//BtnsMainMenu(x, y, true);
+		
+
+		switch (*StateMachine::pGameState)
+		{
+		case GameState::MAINMENU:	BtnsMainMenu(x, y, true);		break;
+		case GameState::ABOUT:		BtnsAbout(x, y, true);			break;
+		case GameState::PAUSED:		BtnsPaused(x, y, true);			break;
+		case GameState::WIN:		BtnsWin(x, y, true);			break;
+		case GameState::LOSE:		BtnsLose(x, y, true);			break;
+		case GameState::GAMEON:		BtnsGameOn(x, y, true);			break;
+		}
+
 		SetCapture(mhMainWnd);
 	}
 }
@@ -821,24 +796,28 @@ void Engine::OnMouseMove(WPARAM btnState, int x, int y)
 		switch (*StateMachine::pGameState)
 		{
 		case GameState::MAINMENU:	BtnsMainMenu(x, y, false);		break;
+		case GameState::ABOUT:		BtnsAbout(x, y, false);			break;
 		case GameState::PAUSED:		BtnsPaused(x, y, false);		break;
 		case GameState::WIN:		BtnsWin(x, y, false);			break;
 		case GameState::LOSE:		BtnsLose(x, y, false);			break;
 		case GameState::GAMEON:		BtnsGameOn(x, y, false);		break;
 		}
 	}
-	if ((btnState & MK_LBUTTON) != 0)
+	if (*StateMachine::pGameState == GameState::GAMEON)
 	{
-		// Make each pixel correspond to a quarter of a degree.
-		float dx = XMConvertToRadians(0.25f*static_cast<float>(x - mLastMousePos.x));
-		float dy = XMConvertToRadians(0.25f*static_cast<float>(y - mLastMousePos.y));
-
-		mCam.mPitch += dy; //Increment internal pitch 
-
-		if (mCam.mPitch > -XM_PI/2 && mCam.mPitch < XM_PI/4){ mCam.Pitch(dy); } //LIMITS UP AND DOWN
-		mCam.mPitch = MathHelper::Clamp(mCam.mPitch, -XM_PI / 2, XM_PI/4);
-		
-		mCam.RotateY(dx);
+// 		if ((btnState & MK_LBUTTON) != 0)
+// 		{
+			// Make each pixel correspond to a quarter of a degree.
+			float dx = XMConvertToRadians(0.25f*static_cast<float>(x - mLastMousePos.x));
+			float dy = XMConvertToRadians(0.25f*static_cast<float>(y - mLastMousePos.y));
+	
+			mCam.mPitch += dy; //Increment internal pitch 
+	
+			if (mCam.mPitch > -XM_PI/2 && mCam.mPitch < XM_PI/4){ mCam.Pitch(dy); } //LIMITS UP AND DOWN
+			mCam.mPitch = MathHelper::Clamp(mCam.mPitch, -XM_PI / 2, XM_PI/4);
+			
+			mCam.RotateY(dx);
+/*		}*/
 	}
 
 	mLastMousePos.x = x;
@@ -850,6 +829,8 @@ void Engine::OnKeyUP(WPARAM btnState)
 	{
 	case 0x31:(mWireMode) ? mWireMode = false : mWireMode = true; break;	// 1 KEY
 	case 0x32:(mBFCull) ? mBFCull = false : mBFCull = true; break;	// 2 KEY
+	case 0x50:if (*StateMachine::pGameState == GameState::GAMEON || *StateMachine::pGameState == GameState::PAUSED)
+		{(*StateMachine::pGameState == GameState::PAUSED) ? *StateMachine::pGameState = GameState::GAMEON : *StateMachine::pGameState = GameState::PAUSED;}break;
 	}
 }
 void Engine::KeyboardHandler(float dt)
@@ -858,17 +839,20 @@ void Engine::KeyboardHandler(float dt)
 	//
 	// Control the camera.
 	//
-	if (GetAsyncKeyState('W') & 0x8000)
-		mCam.Walk(1300.0f*dt);
-
-	if (GetAsyncKeyState('S') & 0x8000)
-		mCam.Walk(-1300.0f*dt);
-
-	if (GetAsyncKeyState('A') & 0x8000)
-		mCam.Strafe(-1300.0f*dt);
-
-	if (GetAsyncKeyState('D') & 0x8000)
-		mCam.Strafe(1300.0f*dt);
+	if (*StateMachine::pGameState == GameState::GAMEON)
+	{
+		if (GetAsyncKeyState('W') & 0x8000)
+			mCam.Walk(1300.0f*dt);
+	
+		if (GetAsyncKeyState('S') & 0x8000)
+			mCam.Walk(-1300.0f*dt);
+	
+		if (GetAsyncKeyState('A') & 0x8000)
+			mCam.Strafe(-1300.0f*dt);
+	
+		if (GetAsyncKeyState('D') & 0x8000)
+			mCam.Strafe(1300.0f*dt);
+	
 
 	//
 	// Walk/fly mode
@@ -878,7 +862,7 @@ void Engine::KeyboardHandler(float dt)
 	if (GetAsyncKeyState('3') & 0x8000)
 		mWalkCamMode = false;
 
-
+	}
 	//
 	// Reset particle systems.
 	//
@@ -900,7 +884,7 @@ void Engine::BtnsMainMenu(float x, float y, bool clicked)
 		mPlayButt->hovering = true;
 		if (clicked)
 		{
-			//Button Clicked
+			*StateMachine::pGameState = GameState::GAMEON;
 		}
 	}
 	else{ mPlayButt->hovering = false; }
@@ -910,7 +894,7 @@ void Engine::BtnsMainMenu(float x, float y, bool clicked)
 		mAboutButt->hovering = true;
 		if (clicked)
 		{
-			//Button Clicked
+			*StateMachine::pGameState = GameState::ABOUT;
 		}
 	}
 	else{ mAboutButt->hovering = false; }
@@ -920,7 +904,14 @@ void Engine::BtnsMainMenu(float x, float y, bool clicked)
 		mSoundButt->hovering = true;
 		if (clicked)
 		{
-			//Button Clicked
+			if (*StateMachine::pSoundState == SoundState::SOUNDON)
+			{ 
+				*StateMachine::pSoundState = SoundState::SOUNDOFF; 
+			}
+			else
+			{
+				*StateMachine::pSoundState = SoundState::SOUNDON;
+			}
 		}
 	}
 	else{ mSoundButt->hovering = false; }
@@ -930,14 +921,53 @@ void Engine::BtnsMainMenu(float x, float y, bool clicked)
 		mMusicButt->hovering = true;
 		if (clicked)
 		{
-			//Button Clicked
+			
+			if (*StateMachine::pMusicState == MusicState::MUSICON)
+			{
+				*StateMachine::pMusicState = MusicState::MUSICOFF;
+			} 
+			else
+			{
+				*StateMachine::pMusicState = MusicState::MUSICON;
+			}
 		}
 	}
 	else{ mMusicButt->hovering = false; }
+
+}
+void Engine::BtnsAbout(float x, float y, bool clicked)
+{
+	if (InButton(x, y, mBackButt))
+	{
+		mBackButt->hovering = true;
+		if (clicked)
+		{
+			*StateMachine::pGameState = GameState::MAINMENU;
+		}
+	}
+	else{ mBackButt->hovering = false; }
 }
 void Engine::BtnsPaused(float x, float y, bool clicked)
 {
+	if (InButton(x, y, mQuitButt))
+	{
+		mQuitButt->hovering = true;
+		if (clicked)
+		{
+			*StateMachine::pGameState = GameState::MAINMENU;
+		}
+	}
+	else{ mQuitButt->hovering = false; }
 
+	if (InButton(x, y, mRestartButt))
+	{
+		mRestartButt->hovering = true;
+		if (clicked)
+		{
+			*StateMachine::pGameState = GameState::GAMEON;
+		}
+	}
+	else{ mRestartButt->hovering = false; }
 }
 void Engine::BtnsGameOn(float x, float y, bool clicked)
 {

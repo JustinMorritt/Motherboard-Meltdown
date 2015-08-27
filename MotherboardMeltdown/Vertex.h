@@ -9,6 +9,8 @@
 
 #include "d3dUtil.h"
 
+
+
 namespace Vertex
 {
 	// Basic 32-byte vertex structure.
@@ -33,6 +35,12 @@ namespace Vertex
 		XMFLOAT2 Size;
 		float Age;
 		unsigned int Type;
+	};
+
+	struct Wave
+	{
+		XMFLOAT3 Pos;
+		XMFLOAT3 Normal;
 	};
 }
 
