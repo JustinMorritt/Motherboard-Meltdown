@@ -8,9 +8,13 @@ mLook(0.0f, 0.0f, 1.0f),
 prevPitch(0.0f),
 rotationY(0.0f),
 prevRoll(0.0f),
+origTexScale(1.0f),
+texTrans(0.0f,0.0f,0.0f),
+texTransMult(0.0f,0.0f,0.0f),
 mWidth(width),
-mHeight(mHeight),
-hovering(false)
+mHeight(height),
+hovering(false),
+useTexTrans(false)
 {
 	//CREAT TEXTURE
 	HR(D3DX11CreateShaderResourceViewFromFile(device, texFilename.c_str(), 0, 0, &mTexSRV, 0));
@@ -101,13 +105,13 @@ void Button::Update(const Camera& camera, float dt)
 		//SCALING THE WAY I THOUGHT NEEDED DONE
 		XMMATRIX trans = XMMatrixTranslation(mWorld.m[3][0], mWorld.m[3][1], mWorld.m[3][2]); // ORIGINAL TRANSLATION
 		XMMATRIX rotX = XMMatrixRotationX(-XM_PI / 4.5);
-		XMMATRIX scaling = XMMatrixScaling(1.5f, 1.5f, 1.5f);
+		XMMATRIX scaling = XMMatrixScaling(1.3f, 1.3f, 1.3f);
 		XMStoreFloat4x4(&mWorld, scaling * rotX * trans); // Scaled Then sent Back To Original Position;
 	}
 
 }
 
-void Button::Draw(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* context, UINT pass, const Camera& camera)
+void Button::Draw(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* context, UINT pass, const Camera& camera, float dt)
 {
 	XMMATRIX world = XMLoadFloat4x4(&mWorld);
 	XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
@@ -115,7 +119,14 @@ void Button::Draw(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* conte
 	Effects::BasicFX->SetWorld(world);
 	Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 	Effects::BasicFX->SetWorldViewProj(worldViewProj);
-	Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
+	if (!useTexTrans){ Effects::BasicFX->SetTexTransform(XMMatrixScaling(origTexScale, origTexScale, origTexScale)); }
+	if (useTexTrans)
+	{
+		Effects::BasicFX->SetTexTransform(XMMatrixTranslation(texTrans.x, texTrans.y, texTrans.z)*XMMatrixScaling(origTexScale, origTexScale, origTexScale));
+	texTrans.x += dt*texTransMult.x;
+	texTrans.y += dt*texTransMult.y;
+	texTrans.z += dt*texTransMult.z;
+	}
 	Effects::BasicFX->SetMaterial(mMat);
 	Effects::BasicFX->SetDiffuseMap(mTexSRV);
 
@@ -132,7 +143,7 @@ void Button::Draw2D(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* con
 	Effects::BasicFX->SetWorld(world);
 	Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 	Effects::BasicFX->SetWorldViewProj(worldViewProj);
-	Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
+	Effects::BasicFX->SetTexTransform(XMMatrixScaling(origTexScale, origTexScale, origTexScale));
 	Effects::BasicFX->SetMaterial(mMat);
 	Effects::BasicFX->SetDiffuseMap(mTexSRV);
 
@@ -153,7 +164,7 @@ void Button::DrawShadow(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext*
 		XMMATRIX world = XMLoadFloat4x4(&mWorld)*S*shadowScale*trans;
 		XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
 		XMMATRIX worldViewProj = world*camera.View()*camera.Proj();
-
+		Effects::BasicFX->SetTexTransform(XMMatrixScaling(origTexScale, origTexScale, origTexScale));
 		Effects::BasicFX->SetWorld(world);
 		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 		Effects::BasicFX->SetWorldViewProj(worldViewProj);
@@ -164,6 +175,9 @@ void Button::DrawShadow(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext*
 		context->DrawIndexed(mIndexCount, mIndexOffset, 0);
 	}
 }
+
+
+
 
 void Button::SetVertexOffset(int offSet)
 {
@@ -201,6 +215,9 @@ void Button::LoadVertData(std::vector<Vertex::Basic32>& verts, UINT& k)
 	XMStoreFloat3(&mMeshBox.Center, 0.5f*(vMin + vMax));
 	XMStoreFloat3(&mMeshBox.Extents, 0.5f*(vMax - vMin));
 }
+
+
+
 
 int Button::GetVertOffset()
 {

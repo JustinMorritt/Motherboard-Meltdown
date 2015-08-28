@@ -17,7 +17,7 @@ public:
 	void SetPos(float x, float y, float z);
 	void SetRot(float x, float y, float z);
 	void Update(const Camera& camera, float dt);
-	void Draw(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* context, UINT pass, const Camera& camera);
+	void Draw(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* context, UINT pass, const Camera& camera, float dt);
 	void Draw2D(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* context, UINT pass, const Camera& camera, XMMATRIX& ortho);
 	void DrawShadow(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* context,const XMVECTOR& shadPlane,const XMVECTOR& lightDir,const XMMATRIX& S, float scale, float xOff, float yOff, float zOff, const Camera& camera, const Material& mat);
 	void SetVertexOffset(int offSet);
@@ -73,12 +73,19 @@ public:
 	int mWidth;
 	int mHeight;
 
+	XMFLOAT3 texTrans;
+	XMFLOAT3 texTransMult;
+	
+
 	float rotationY;
 	float prevPitch;
 	float prevRoll;
 
 	bool hovering;
 	bool clicked;
+	bool useTexTrans;
+
+	float origTexScale;
 
 	//SYSTEM COPIES OF MESH FOR PICKING
 	std::vector<Vertex::Basic32> mMeshVertices;

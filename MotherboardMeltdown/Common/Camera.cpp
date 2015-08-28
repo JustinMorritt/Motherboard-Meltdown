@@ -5,11 +5,11 @@
 #include "Camera.h"
 
 Camera::Camera()
-	: mPosition(0.0f, 0.0f, 0.0f), 
-	  mRight(1.0f, 0.0f, 0.0f),
-	  mUp(0.0f, 1.0f, 0.0f),
-	  mLook(0.0f, 0.0f, 1.0f),
-	  mPitch(0.0f)
+	: mPosition(0.0f, 0.0f, 0.0f),
+	mRight(1.0f, 0.0f, 0.0f),
+	mUp(0.0f, 1.0f, 0.0f),
+	mLook(0.0f, 0.0f, 1.0f),
+	mPitch(0.0f)
 {
 	SetLens(0.25f*MathHelper::Pi, 1.0f, 1.0f, 1000.0f);
 }
@@ -36,6 +36,15 @@ void Camera::SetPosition(float x, float y, float z)
 void Camera::SetPosition(const XMFLOAT3& v)
 {
 	mPosition = v;
+}
+
+void Camera::ResetCam()
+{
+	mPosition = { 0.0f, 0.0f, 0.0f };
+	mRight = { 1.0f, 0.0f, 0.0f };
+	mUp = { 0.0f, 1.0f, 0.0f };
+	mLook = { 0.0f, 0.0f, 1.0f };
+	mPitch =0.0f;
 }
 
 XMVECTOR Camera::GetRightXM()const

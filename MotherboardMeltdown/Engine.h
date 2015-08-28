@@ -38,6 +38,7 @@ public:
 	void CameraHandler();
 	void ClearScene();
 	void RestoreStates();
+	void ResetCamMainMenu();
 
 	//SCENE INITS
 	void InitMainMenu();
@@ -95,6 +96,13 @@ private:
 	Button* mBackButt;
 	Button* mAboutMsgButt;
 
+	//Binary Floors 
+	Button* mNorthF;
+	Button* mSouthF;
+	Button* mWestF;
+	Button* mEastF;
+
+
 	ID3D11ShaderResourceView* mFlareTexSRV;
 	ID3D11ShaderResourceView* mRainTexSRV;
 	ID3D11ShaderResourceView* mRandomTexSRV;
@@ -109,6 +117,7 @@ private:
 
 	//MAIN MENU STUFF
 	ID3D11ShaderResourceView* mFloorTexSRV;
+	ID3D11ShaderResourceView* mBinaryFloorSRV; //TODO: Maybe add a different material for it 
 
 	Material mGridMat;
 	Material mShadowMat;
@@ -129,6 +138,7 @@ private:
 	
 
 };
+
 
 
 #endif // Engine_h__
