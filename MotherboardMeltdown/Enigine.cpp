@@ -28,6 +28,10 @@ Engine::Engine(HINSTANCE hInstance)
 	mWestF(0),
 	mEastF(0),
 	mSouthF(0),
+	mCompBar(0),
+	mCompBarOL(0),
+	mBugBar(0),
+	mBugBarOL(0),
 	fullyLoaded(false)
 {
 	mMainWndCaption = L"Motherboard Meltdown";
@@ -177,6 +181,13 @@ void Engine::UpdateGame(float dt)
 	mRestartButt->Update(mCam, dt);
 	mPausedButt->Update(mCam, dt);
 	mBackButt->Update(mCam, dt);
+	mCompBar->Update(mCam, dt); IncProgress(dt);
+	mCompBarOL->Update(mCam, dt);
+	mBugBar->Update(mCam, dt);
+	mBugBarOL->Update(mCam, dt);
+	mYouWinButt->Update(mCam, dt);
+	mYouLoseButt->Update(mCam, dt);
+	mRetryButt->Update(mCam, dt);
 }
 
 void Engine::DrawScene()
@@ -246,7 +257,16 @@ void Engine::ResetCamMainMenu()
 	mCam.SetPosition(0.0f, 150.0f, -400.0f);
 	mCam.Pitch(XM_PI / 6.5);
 }
-
+void Engine::IncProgress(float dt)
+{
+	(mCompBar->currProgress < 1.0) ? mCompBar->currProgress += dt / 100 : mCompBar->currProgress = 1.0;
+	if (mCompBar->currProgress == 1.0){ *StateMachine::pGameState = GameState::WIN; }
+}
+void Engine::IncBugs(float bug)
+{
+	(mBugBar->currProgress < 1.0) ? mBugBar->currProgress += bug : mBugBar->currProgress = 1.0;
+	if (mBugBar->currProgress == 1.0){ *StateMachine::pGameState = GameState::LOSE; }
+}
 
 
 //GAME INITS
@@ -254,8 +274,6 @@ void Engine::InitMainMenu()
 {
 	HR(D3DX11CreateShaderResourceViewFromFile(md3dDevice, L"Textures/motherboard.dds", 0, 0, &mFloorTexSRV, 0));
 	
-
-
 
 	//MAKE BUTTONS
 	mPlayButt		= new Button(md3dDevice, L"Textures/play.dds",		80.0f, 40.0f);
@@ -267,7 +285,6 @@ void Engine::InitMainMenu()
 	mMOffButt		= new Button(md3dDevice, L"Textures/off.dds",		40.0f, 20.0f);
 	mTitleButt		= new Button(md3dDevice, L"Textures/title.dds",		140.0f, 50.0f);
 	mAboutButt		= new Button(md3dDevice, L"Textures/about.dds",		80.0f, 40.0f);
-
 	mCompiledButt	= new Button(md3dDevice, L"Textures/compiled.dds",	400.0f, 200.0f);
 	mBymeButt		= new Button(md3dDevice, L"Textures/byme.dds",		110.0f, 30.0f);
 	mBugsButt		= new Button(md3dDevice, L"Textures/bugs.dds",		350.0f, 200.0f);
@@ -275,15 +292,26 @@ void Engine::InitMainMenu()
 	mRestartButt	= new Button(md3dDevice, L"Textures/restart.dds",	350.0f, 200.0f);
 	mPausedButt		= new Button(md3dDevice, L"Textures/paused.dds",	600.0f, 300.0f);
 	mBackButt		= new Button(md3dDevice, L"Textures/back.dds",		80.0f, 40.0f);
-	mAboutMsgButt	= new Button(md3dDevice, L"Textures/aboutmsg.dds",	110.0f, 110.0f);
+	mAboutMsgButt	= new Button(md3dDevice, L"Textures/aboutmsg.dds", 110.0f, 110.0f);
+	mYouWinButt		= new Button(md3dDevice, L"Textures/youwin.dds", 350.0f, 200.0f);
+	mYouLoseButt	= new Button(md3dDevice, L"Textures/youlose.dds", 350.0f, 200.0f);
+	mRetryButt		= new Button(md3dDevice, L"Textures/retry.dds", 350.0f, 200.0f);
+
+
 
 	//BINARY FLOORS ..Using Buttons .
 	mNorthF			= new Button(md3dDevice, L"Textures/binary.dds", 2500.0f, 1000.0f);
 	mSouthF			= new Button(md3dDevice, L"Textures/binary.dds", 2500.0f, 1000.0f);
 	mWestF			= new Button(md3dDevice, L"Textures/binary.dds", 1000.0f, 500.0f);
 	mEastF			= new Button(md3dDevice, L"Textures/binary.dds", 1000.0f, 500.0f);
+
+	mCompBar		= new Button(md3dDevice, L"Textures/compBar.dds",	900.0f, 60.0f);
+	mCompBarOL		= new Button(md3dDevice, L"Textures/BarOL.dds",		900.0f, 60.0f);
+	mBugBar			= new Button(md3dDevice, L"Textures/bugsBar.dds",	900.0f, 60.0f);
+	mBugBarOL		= new Button(md3dDevice, L"Textures/BarOL.dds",		900.0f, 60.0f);
 	
 
+	//3D UI STUFF
 	mPlayButt->SetPos(0.0f, 100.0f, -90.0f);
 	mPlayButt->Pitch(XM_PI / 4.5);
 
@@ -311,11 +339,11 @@ void Engine::InitMainMenu()
 	mAboutButt->SetPos(100.0f, 100.0f, -90.0f);
 	mAboutButt->Pitch(XM_PI / 4.5);
 	
-
-
 	mBymeButt->SetPos(-130.0f, 100.0f, -90.0f);
 	mBymeButt->Pitch(XM_PI / 4.5);
 
+
+	//2D UI STUFF
 	mRestartButt->SetPos(-700.0f, 100.0f, -90.0f);
 	mRestartButt->Pitch(XM_PI / 4.5);
 
@@ -337,19 +365,45 @@ void Engine::InitMainMenu()
 	mQuitButt->SetPos(700.0f, 100.0f, -90.0f);
 	mQuitButt->Pitch(XM_PI / 4.5);
 
-	//FLOORS
+	mCompBar->SetPos(-30.0f, 750.0f, -90.0f);
+	mCompBar->Pitch(XM_PI / 4);
+	mCompBar->progressBar = true;
 
+	mCompBarOL->SetPos(-30.0f, 750.0f, -90.0f);
+	mCompBarOL->Pitch(XM_PI / 4);
+
+	mBugBar->SetPos(-30.0f, -500.0f, -90.0f);
+	mBugBar->Pitch(XM_PI / 4);
+	mBugBar->progressBar = true;
+
+
+	mBugBarOL->SetPos(-30.0f, -500.0f, -90.0f);
+	mBugBarOL->Pitch(XM_PI / 4);
+
+
+	mYouWinButt->SetPos(0.0f, 150.0f, -90.0f);
+	mYouWinButt->Pitch(XM_PI / 4); 
+	mYouLoseButt->SetPos(0.0f, 150.0f, -90.0f);
+	mYouLoseButt->Pitch(XM_PI / 4);
+	mRetryButt->SetPos(-700.0f, 100.0f, -90.0f);
+	mRetryButt->Pitch(XM_PI / 4);
+
+
+
+
+
+	//FLOORS
 	mNorthF->SetPos(0.0f, -0.1f, 750.0f);
 	mSouthF->SetPos(0.0f, -0.1f, -750.0f);
 	mWestF->SetPos(750.0f, -0.1f, 0.0f);
 	mEastF->SetPos(-750.0f, -0.1f, 0.0f);
 
-	mNorthF->origTexScale = 16.0f;
-	mSouthF->origTexScale = 16.0f;
-	mWestF->origTexScale =  6.0f;
-	mEastF->origTexScale =  6.0f;
+	mNorthF->origTexScale = 32.0f;
+	mSouthF->origTexScale = 32.0f;
+	mWestF->origTexScale =  12.0f;
+	mEastF->origTexScale =  12.0f;
 
-	float texSpeed = 0.05f;
+	float texSpeed = 0.01f;
 	mNorthF->useTexTrans = true; mNorthF->texTransMult	= { 0.0f,		-texSpeed,		0.0f };
 	mSouthF->useTexTrans = true; mSouthF->texTransMult	= { 0.0f,		texSpeed,		0.0f };
 	mWestF->useTexTrans = true; mWestF->texTransMult	= { texSpeed,	0.0f,			0.0f };
@@ -390,11 +444,19 @@ void Engine::InitMainMenu()
 	mPausedButt->SetVertexOffset(mRestartButt->GetVertOffset()	+ mRestartButt->mGrid.Vertices.size());
 	mBackButt->SetVertexOffset(mPausedButt->GetVertOffset()		+ mPausedButt->mGrid.Vertices.size());
 	mAboutMsgButt->SetVertexOffset(mBackButt->GetVertOffset()	+ mBackButt->mGrid.Vertices.size());
+	mNorthF->SetVertexOffset(mAboutMsgButt->GetVertOffset()		+ mAboutMsgButt->mGrid.Vertices.size());
+	mWestF->SetVertexOffset(mNorthF->GetVertOffset()			+ mNorthF->mGrid.Vertices.size());
+	mEastF->SetVertexOffset(mWestF->GetVertOffset()				+ mWestF->mGrid.Vertices.size());
+	mSouthF->SetVertexOffset(mEastF->GetVertOffset()			+ mEastF->mGrid.Vertices.size());
+	mCompBar->SetVertexOffset(mSouthF->GetVertOffset()			+ mSouthF->mGrid.Vertices.size());
+	mCompBarOL->SetVertexOffset(mCompBar->GetVertOffset()		+ mCompBar->mGrid.Vertices.size());
+	mBugBar->SetVertexOffset(mCompBarOL->GetVertOffset()		+ mCompBarOL->mGrid.Vertices.size());
+	mBugBarOL->SetVertexOffset(mBugBar->GetVertOffset()			+ mBugBar->mGrid.Vertices.size());
+	mYouWinButt->SetVertexOffset(mBugBarOL->GetVertOffset()		+ mBugBarOL->mGrid.Vertices.size());
+	mYouLoseButt->SetVertexOffset(mYouWinButt->GetVertOffset()	+ mYouWinButt->mGrid.Vertices.size());
+	mRetryButt->SetVertexOffset(mYouLoseButt->GetVertOffset()	+ mYouLoseButt->mGrid.Vertices.size());
 
-	mNorthF->SetVertexOffset(mAboutMsgButt->GetVertOffset() + mAboutMsgButt->mGrid.Vertices.size());
-	mWestF->SetVertexOffset(mNorthF->GetVertOffset() + mNorthF->mGrid.Vertices.size());
-	mEastF->SetVertexOffset(mWestF->GetVertOffset() + mWestF->mGrid.Vertices.size());
-	mSouthF->SetVertexOffset(mEastF->GetVertOffset() + mEastF->mGrid.Vertices.size());
+
 
 	// Cache the index count of each object.
 	mGridIndexCount = grid.Indices.size();
@@ -421,6 +483,16 @@ void Engine::InitMainMenu()
 	mWestF->SetIndexOffset(			mNorthF->GetIndOffset()			+ mNorthF->mGrid.Indices.size());
 	mEastF->SetIndexOffset(			mWestF->GetIndOffset()			+ mWestF->mGrid.Indices.size());
 	mSouthF->SetIndexOffset(		mEastF->GetIndOffset()			+ mEastF->mGrid.Indices.size());
+	mCompBar->SetIndexOffset(		mSouthF->GetIndOffset()			+ mSouthF->mGrid.Indices.size());
+	mCompBarOL->SetIndexOffset(		mCompBar->GetIndOffset()		+ mCompBar->mGrid.Indices.size());
+	mBugBar->SetIndexOffset(		mCompBarOL->GetIndOffset()		+ mCompBarOL->mGrid.Indices.size());
+	mBugBarOL->SetIndexOffset(		mBugBar->GetIndOffset()			+ mBugBar->mGrid.Indices.size());
+	mYouWinButt->SetIndexOffset(	mBugBarOL->GetIndOffset()		+ mBugBarOL->mGrid.Indices.size());
+	mYouLoseButt->SetIndexOffset(	mYouWinButt->GetIndOffset()		+ mYouWinButt->mGrid.Indices.size());
+	mRetryButt->SetIndexOffset(		mYouWinButt->GetIndOffset()		+ mYouWinButt->mGrid.Indices.size());
+
+
+
 
 
 	UINT totalVertexCount = grid.Vertices.size()
@@ -444,7 +516,14 @@ void Engine::InitMainMenu()
 		+ mNorthF->mGrid.Vertices.size()
 		+ mWestF->mGrid.Vertices.size()
 		+ mEastF->mGrid.Vertices.size()
-		+ mSouthF->mGrid.Vertices.size();
+		+ mSouthF->mGrid.Vertices.size()
+		+ mCompBar->mGrid.Vertices.size()
+		+ mCompBarOL->mGrid.Vertices.size()
+		+ mBugBar->mGrid.Vertices.size()
+		+ mBugBarOL->mGrid.Vertices.size()
+		+ mYouWinButt->mGrid.Vertices.size()
+		+ mYouLoseButt->mGrid.Vertices.size()
+		+ mRetryButt->mGrid.Vertices.size();
 
 	UINT totalIndexCount = mGridIndexCount
 		+ mPlayButt->mIndexCount
@@ -467,7 +546,16 @@ void Engine::InitMainMenu()
 		+ mNorthF->mIndexCount
 		+ mWestF->mIndexCount
 		+ mEastF->mIndexCount
-		+ mSouthF->mIndexCount;
+		+ mSouthF->mIndexCount
+		+ mCompBar->mIndexCount
+		+ mCompBarOL->mIndexCount
+		+ mBugBar->mIndexCount
+		+ mBugBarOL->mIndexCount
+		+ mYouWinButt->mIndexCount
+		+ mYouLoseButt->mIndexCount
+		+ mRetryButt->mIndexCount;
+
+
 
 	//
 	// Extract the vertex elements we are interested in and pack the
@@ -500,11 +588,17 @@ void Engine::InitMainMenu()
 	mPausedButt->LoadVertData(	vertices, k);
 	mBackButt->LoadVertData(	vertices, k);
 	mAboutMsgButt->LoadVertData(vertices, k);
-
 	mNorthF->LoadVertData(		vertices, k);
 	mWestF->LoadVertData(		vertices, k);
 	mEastF->LoadVertData(		vertices, k);
 	mSouthF->LoadVertData(		vertices, k);
+	mCompBar->LoadVertData(		vertices, k);
+	mCompBarOL->LoadVertData(	vertices, k);
+	mBugBar->LoadVertData(		vertices, k);
+	mBugBarOL->LoadVertData(	vertices, k);
+	mYouWinButt->LoadVertData(	vertices, k);
+	mYouLoseButt->LoadVertData(	vertices, k);
+	mRetryButt->LoadVertData(	vertices, k);
 
 	//****************************************************************************
 
@@ -546,6 +640,13 @@ void Engine::InitMainMenu()
 	indices.insert(indices.end(), mWestF->mGrid.Indices.begin(),		mWestF->mGrid.Indices.end());
 	indices.insert(indices.end(), mEastF->mGrid.Indices.begin(),		mEastF->mGrid.Indices.end());
 	indices.insert(indices.end(), mSouthF->mGrid.Indices.begin(),		mSouthF->mGrid.Indices.end());
+	indices.insert(indices.end(), mCompBar->mGrid.Indices.begin(),		mCompBar->mGrid.Indices.end());
+	indices.insert(indices.end(), mCompBarOL->mGrid.Indices.begin(),	mCompBarOL->mGrid.Indices.end());
+	indices.insert(indices.end(), mBugBar->mGrid.Indices.begin(),		mBugBar->mGrid.Indices.end());
+	indices.insert(indices.end(), mBugBarOL->mGrid.Indices.begin(),		mBugBarOL->mGrid.Indices.end());
+	indices.insert(indices.end(), mYouWinButt->mGrid.Indices.begin(),	mYouWinButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mYouLoseButt->mGrid.Indices.begin(),	mYouLoseButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mRetryButt->mGrid.Indices.begin(),	mRetryButt->mGrid.Indices.end());
 
 
 	//CREATE INDEX BUFFER
@@ -832,7 +933,10 @@ void Engine::DrawGameOn()
 		md3dImmediateContext->OMSetDepthStencilState(RenderStates::ZBufferDisabled, 0); // changing 0 means overlaping draws
 		mBugsButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
 		mCompiledButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
-
+		mCompBar->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mCompBarOL->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mBugBar->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mBugBarOL->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
 
 
 	}
@@ -841,11 +945,63 @@ void Engine::DrawGameOn()
 }
 void Engine::DrawWin()
 {
+	UINT stride = sizeof(Vertex::Basic32);
+	UINT offset = 0;
 
+	mCam.UpdateViewMatrix();
+
+	XMMATRIX view = mCam.View();
+	XMMATRIX proj = mCam.Proj();
+	XMMATRIX viewProj = mCam.ViewProj();
+
+	// Set per frame constants.
+	Effects::BasicFX->SetDirLights(mDirLights);
+	Effects::BasicFX->SetEyePosW(mCam.GetPosition());
+
+	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light1TexAlphaClipTech;
+	D3DX11_TECHNIQUE_DESC techDesc;
+	activeTexTech->GetDesc(&techDesc);
+	md3dImmediateContext->IASetVertexBuffers(0, 1, &mShapesVB, &stride, &offset);
+	md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		mYouWinButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mQuitButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mRestartButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+	}
+
+	RestoreStates();
+	DrawGameOn();
 }
 void Engine::DrawLose()
 {
+	UINT stride = sizeof(Vertex::Basic32);
+	UINT offset = 0;
 
+	mCam.UpdateViewMatrix();
+
+	XMMATRIX view = mCam.View();
+	XMMATRIX proj = mCam.Proj();
+	XMMATRIX viewProj = mCam.ViewProj();
+
+	// Set per frame constants.
+	Effects::BasicFX->SetDirLights(mDirLights);
+	Effects::BasicFX->SetEyePosW(mCam.GetPosition());
+
+	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light1TexAlphaClipTech;
+	D3DX11_TECHNIQUE_DESC techDesc;
+	activeTexTech->GetDesc(&techDesc);
+	md3dImmediateContext->IASetVertexBuffers(0, 1, &mShapesVB, &stride, &offset);
+	md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		mYouLoseButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mQuitButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mRetryButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+	}
+
+	RestoreStates();
+	DrawGameOn();
 }
 
 
@@ -1074,6 +1230,8 @@ void Engine::BtnsPaused(float x, float y, bool clicked)
 		mRestartButt->hovering = true;
 		if (clicked)
 		{
+			mCompBar->currProgress = 0.0f;
+			mBugBar->currProgress = 0.0f;
 			*StateMachine::pGameState = GameState::GAMEON;
 		}
 	}
@@ -1085,11 +1243,57 @@ void Engine::BtnsGameOn(float x, float y, bool clicked)
 }
 void Engine::BtnsWin(float x, float y, bool clicked)
 {
+	if (InButton2D(x, y, mQuitButt))
+	{
+		mQuitButt->hovering = true;
+		if (clicked)
+		{
+			mCompBar->currProgress = 0.0f;
+			mBugBar->currProgress = 0.0f;
+			*StateMachine::pGameState = GameState::MAINMENU;
+			ResetCamMainMenu();
+		}
+	}
+	else{ mQuitButt->hovering = false; }
 
+	if (InButton2D(x, y, mRestartButt))
+	{
+		mRestartButt->hovering = true;
+		if (clicked)
+		{
+			mCompBar->currProgress = 0.0f;
+			mBugBar->currProgress = 0.0f;
+			*StateMachine::pGameState = GameState::GAMEON;
+		}
+	}
+	else{ mRestartButt->hovering = false; }
 }
 void Engine::BtnsLose(float x, float y, bool clicked)
 {
+	if (InButton2D(x, y, mQuitButt))
+	{
+		mQuitButt->hovering = true;
+		if (clicked)
+		{
+			mCompBar->currProgress = 0.0f;
+			mBugBar->currProgress = 0.0f;
+			*StateMachine::pGameState = GameState::MAINMENU;
+			ResetCamMainMenu();
+		}
+	}
+	else{ mQuitButt->hovering = false; }
 
+	if (InButton2D(x, y, mRetryButt))
+	{
+		mRetryButt->hovering = true;
+		if (clicked)
+		{
+			mCompBar->currProgress = 0.0f;
+			mBugBar->currProgress = 0.0f;
+			*StateMachine::pGameState = GameState::GAMEON;
+		}
+	}
+	else{ mRetryButt->hovering = false; }
 }
 bool Engine::InButton(float x, float y, Button* button)
 {

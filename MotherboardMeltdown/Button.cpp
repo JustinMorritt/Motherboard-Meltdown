@@ -11,10 +11,12 @@ prevRoll(0.0f),
 origTexScale(1.0f),
 texTrans(0.0f,0.0f,0.0f),
 texTransMult(0.0f,0.0f,0.0f),
+currProgress(0.0f),
 mWidth(width),
 mHeight(height),
 hovering(false),
-useTexTrans(false)
+useTexTrans(false),
+progressBar(false)
 {
 	//CREAT TEXTURE
 	HR(D3DX11CreateShaderResourceViewFromFile(device, texFilename.c_str(), 0, 0, &mTexSRV, 0));
@@ -41,6 +43,8 @@ useTexTrans(false)
 
 Button::~Button()
 {
+	mTexSRV->Release();
+	mTexSRV = nullptr;
 }
 
 void Button::SetPos(float x, float y, float z)
@@ -107,6 +111,11 @@ void Button::Update(const Camera& camera, float dt)
 		XMMATRIX rotX = XMMatrixRotationX(-XM_PI / 4.5);
 		XMMATRIX scaling = XMMatrixScaling(1.3f, 1.3f, 1.3f);
 		XMStoreFloat4x4(&mWorld, scaling * rotX * trans); // Scaled Then sent Back To Original Position;
+	}
+
+	if (progressBar)
+	{
+		ScaleX(currProgress);
 	}
 
 }
@@ -323,6 +332,16 @@ void Button::Scale(float scale)
 	XMMATRIX trans = XMMatrixTranslation(curr.m[3][0], curr.m[3][1], curr.m[3][2]);
 	XMMATRIX scaling = XMMatrixScaling(scale,scale,scale);
 	XMStoreFloat4x4(&mWorld, scaling * trans); // Scaled Then sent Back To Original Position;
+}
+
+//USED FOR THE PROGRESS BARS
+void Button::ScaleX(float scale)
+{
+	//Progress gets offset on the X depending on the currProgress
+	XMMATRIX trans = XMMatrixTranslation(mWorld.m[3][0]-(mWidth/2 - (mWidth/2*currProgress)), mWorld.m[3][1], mWorld.m[3][2]); // ORIGINAL TRANSLATION
+	XMMATRIX rotX = XMMatrixRotationX(-XM_PI / 4);
+	XMMATRIX scaling = XMMatrixScaling(scale, 1.0f, 1.0f);
+	XMStoreFloat4x4(&mWorld, scaling * rotX * trans); // Scaled Then sent Back To Original Position;
 }
 
 XMVECTOR Button::GetPositionXM()const

@@ -35,6 +35,7 @@ public:
 
 	//Scale
 	void Scale(float scale);
+	void ScaleX(float scale);
 
 	void LookAt(FXMVECTOR pos, FXMVECTOR target, FXMVECTOR worldUp);
 	void LookAt(const XMFLOAT3& pos, const XMFLOAT3& target, const XMFLOAT3& up);
@@ -80,10 +81,12 @@ public:
 	float rotationY;
 	float prevPitch;
 	float prevRoll;
+	float currProgress;
 
 	bool hovering;
 	bool clicked;
 	bool useTexTrans;
+	bool progressBar;
 
 	float origTexScale;
 

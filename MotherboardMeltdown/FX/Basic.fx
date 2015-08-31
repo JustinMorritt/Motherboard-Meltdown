@@ -32,7 +32,7 @@ TextureCube gCubeMap;
 SamplerState samAnisotropic
 {
 	Filter = ANISOTROPIC;
-	MaxAnisotropy = 4;
+	MaxAnisotropy = 8;
 
 	AddressU = WRAP;
 	AddressV = WRAP;

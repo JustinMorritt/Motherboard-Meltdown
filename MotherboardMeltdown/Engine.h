@@ -39,6 +39,8 @@ public:
 	void ClearScene();
 	void RestoreStates();
 	void ResetCamMainMenu();
+	void IncProgress(float dt);
+	void IncBugs(float dt);
 
 	//SCENE INITS
 	void InitMainMenu();
@@ -86,7 +88,6 @@ private:
 	Button* mSOffButt;
 	Button* mMOnButt;
 	Button* mMOffButt;
-
 	Button* mCompiledButt;
 	Button* mBymeButt;
 	Button* mBugsButt;
@@ -95,12 +96,23 @@ private:
 	Button* mPausedButt;
 	Button* mBackButt;
 	Button* mAboutMsgButt;
+	Button* mYouWinButt;
+	Button* mYouLoseButt;
+	Button* mRetryButt;
+
 
 	//Binary Floors 
 	Button* mNorthF;
 	Button* mSouthF;
 	Button* mWestF;
 	Button* mEastF;
+
+	//Progress Bars 
+	Button* mCompBar;
+	Button* mCompBarOL;
+	Button* mBugBar;
+	Button* mBugBarOL;
+
 
 
 	ID3D11ShaderResourceView* mFlareTexSRV;
@@ -138,6 +150,7 @@ private:
 	
 
 };
+
 
 
 
