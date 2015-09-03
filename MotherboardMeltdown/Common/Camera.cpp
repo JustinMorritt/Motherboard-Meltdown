@@ -221,9 +221,9 @@ void Camera::RotateY(float angle)
 
 	XMMATRIX R = XMMatrixRotationY(angle);
 
-	XMStoreFloat3(&mRight,   XMVector3TransformNormal(XMLoadFloat3(&mRight), R));
-	XMStoreFloat3(&mUp, XMVector3TransformNormal(XMLoadFloat3(&mUp), R));
-	XMStoreFloat3(&mLook, XMVector3TransformNormal(XMLoadFloat3(&mLook), R));
+	XMStoreFloat3(&mRight,		XMVector3TransformNormal(XMLoadFloat3(&mRight), R));
+	XMStoreFloat3(&mUp,			XMVector3TransformNormal(XMLoadFloat3(&mUp),	R));
+	XMStoreFloat3(&mLook,		XMVector3TransformNormal(XMLoadFloat3(&mLook),	R));
 }
 
 void Camera::UpdateViewMatrix()

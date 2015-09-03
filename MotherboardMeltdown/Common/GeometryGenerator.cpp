@@ -88,6 +88,33 @@ void GeometryGenerator::CreateBox(float width, float height, float depth, MeshDa
 	meshData.Indices.assign(&i[0], &i[36]);
 }
 
+void GeometryGenerator::CreateUprightSquare(float width, float height, MeshData& meshData)
+{
+
+	Vertex v[4];
+
+	float w2 = 0.5f*width;
+	float h2 = 0.5f*height;
+	
+
+	// Fill in the front face vertex data.
+	// Fill in the front face vertex data.
+	v[0] = Vertex(-w2, -h2, 0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f);
+	v[1] = Vertex(-w2, +h2, 0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+	v[2] = Vertex(+w2, +h2, 0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+	v[3] = Vertex(+w2, -h2, 0.0f, 0.0f, 0.0f, 1.0f, -1.0f, 0.0f, 0.0f, 1.0f, 1.0f);//bot left
+
+	meshData.Vertices.assign(&v[0], &v[4]);
+
+ 	UINT* i = new UINT[6];
+
+	// Fill in the front face index data
+	i[0] = 0; i[1] = 1; i[2] = 2;
+	i[3] = 0; i[4] = 2; i[5] = 3;
+
+ 	meshData.Indices.assign(&i[0], &i[6]);
+}
+
 void GeometryGenerator::CreateSphere(float radius, UINT sliceCount, UINT stackCount, MeshData& meshData)
 {
 	meshData.Vertices.clear();

@@ -47,6 +47,8 @@ public:
 	///</summary>
 	void CreateBox(float width, float height, float depth, MeshData& meshData);
 
+	void CreateUprightSquare(float width, float height, MeshData& meshData);
+
 	///<summary>
 	/// Creates a sphere centered at the origin with the given radius.  The
 	/// slices and stacks parameters control the degree of tessellation.

@@ -81,6 +81,15 @@
     <ClCompile Include="Button.cpp">
       <Filter>CPP</Filter>
     </ClCompile>
+    <ClCompile Include="BasicModel.cpp">
+      <Filter>CPP</Filter>
+    </ClCompile>
+    <ClCompile Include="LoadOBJ.cpp">
+      <Filter>CPP</Filter>
+    </ClCompile>
+    <ClCompile Include="MeshGeometry.cpp">
+      <Filter>CPP</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Effects.h">
@@ -146,6 +155,15 @@
     <ClInclude Include="Button.h">
       <Filter>HEADER</Filter>
     </ClInclude>
+    <ClInclude Include="BasicModel.h">
+      <Filter>HEADER</Filter>
+    </ClInclude>
+    <ClInclude Include="LoadOBJ.h">
+      <Filter>HEADER</Filter>
+    </ClInclude>
+    <ClInclude Include="MeshGeometry.h">
+      <Filter>HEADER</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="FX\LightHelper.fx">
@@ -168,5 +186,10 @@
     <CustomBuild Include="FX\Rain.fx">
       <Filter>SHADERS</Filter>
     </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="FX\NormalMap.fx">
+      <Filter>SHADERS</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

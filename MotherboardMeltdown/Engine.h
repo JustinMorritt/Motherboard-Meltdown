@@ -17,6 +17,9 @@
 #include "Button.h"
 #include "xnacollision.h"
 #include "MathHelper.h"
+#include "TextureMgr.h"
+#include "BasicModel.h"
+#include <vector>
 
 
 class Engine : public D3DApp
@@ -68,12 +71,13 @@ public:
 	void BtnsGameOn(float x, float y, bool clicked);
 	void BtnsWin(float x, float y, bool clicked);
 	void BtnsLose(float x, float y, bool clicked);
-	bool InButton(float sx, float sy, Button* button);
+	bool InButton3D(float sx, float sy, Button* button);
 	bool InButton2D(float sx, float sy, Button* button);
 
 private:
 	Sky* mSky;
 	Terrain mTerrain;
+	TextureMgr mTexMgr;
 
 	ID3D11Buffer* mShapesVB;
 	ID3D11Buffer* mShapesIB;
@@ -99,6 +103,12 @@ private:
 	Button* mYouWinButt;
 	Button* mYouLoseButt;
 	Button* mRetryButt;
+	Button* mInvader;
+	std::vector<Button*> mInvaders;
+
+	//Models
+	std::vector<BasicModelInstance> mModelInstances;
+	BasicModel* testModel;
 
 
 	//Binary Floors 

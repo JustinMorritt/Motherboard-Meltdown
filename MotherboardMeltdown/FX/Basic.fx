@@ -21,6 +21,8 @@ cbuffer cbPerObject
 	float4x4 gWorld;
 	float4x4 gWorldInvTranspose;
 	float4x4 gWorldViewProj;
+	float4x4 gWorldViewProjTex;
+	float4x4 gShadowTransform;
 	float4x4 gTexTransform;
 	Material gMaterial;
 }; 

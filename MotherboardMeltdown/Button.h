@@ -12,7 +12,7 @@
 class Button
 {
 public:
-	Button(ID3D11Device* device,std::wstring texFilename, float width, float height);
+	Button(ID3D11Device* device,std::wstring texFilename, float width, float height, bool sphere = false, bool upRightSquare= false);
 	~Button();
 	void SetPos(float x, float y, float z);
 	void SetRot(float x, float y, float z);
@@ -31,7 +31,10 @@ public:
 
 	// Rotate 
 	void Pitch(float angle);
+	void Yaw(float angle);
 	void RotateY(float angle);
+	void RotateX(float angle);
+	void RotateZ(float angle);
 
 	//Scale
 	void Scale(float scale);
@@ -39,6 +42,8 @@ public:
 
 	void LookAt(FXMVECTOR pos, FXMVECTOR target, FXMVECTOR worldUp);
 	void LookAt(const XMFLOAT3& pos, const XMFLOAT3& target, const XMFLOAT3& up);
+	void SetGoToPoint(float x, float y, float z);
+
 
 	//Getters
 	int GetVertOffset();
@@ -55,7 +60,6 @@ public:
 
 	GeometryGenerator::MeshData GetMeshData();
 
-
 	ID3D11ShaderResourceView*	mTexSRV;
 	Material					mMat;
 	XMFLOAT4X4					mWorld;
@@ -67,6 +71,7 @@ public:
 
 
 	XMFLOAT3 mPosition;
+	XMFLOAT3 mGoToPos;
 	XMFLOAT3 mRight;
 	XMFLOAT3 mUp;
 	XMFLOAT3 mLook;
@@ -79,14 +84,21 @@ public:
 	
 
 	float rotationY;
+	float rotationZ;
 	float prevPitch;
 	float prevRoll;
 	float currProgress;
+	float mDistanceLeft;
+	float turnAngle;
 
 	bool hovering;
 	bool clicked;
 	bool useTexTrans;
 	bool progressBar;
+	bool goToPos;
+	bool billboard;
+	bool flipUpright;
+	bool reverseLook;
 
 	float origTexScale;
 
