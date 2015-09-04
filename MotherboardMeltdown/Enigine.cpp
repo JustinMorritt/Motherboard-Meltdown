@@ -34,6 +34,16 @@ Engine::Engine(HINSTANCE hInstance)
 	mBugBarOL(0),
 	mInvader(0),
 	testModel(0),
+	spawnBugTime(0),
+	mInvader2(0),
+	mInvader3(0),
+	mInvader4(0),
+	mMushroom(0),
+	spawnMushTime(0),
+	speedBonusTime(0),
+	mProjectile(0),
+	mMoveSpeed(500),
+	spawnTimer(0.0f),
 	fullyLoaded(false)
 {
 	mMainWndCaption = L"Motherboard Meltdown";
@@ -211,27 +221,84 @@ void Engine::UpdateGame(float dt)
 	mRetryButt->Update(mCam, dt);
 	
 	
+	//TIMER STUFF / SPAWN RATES   *Spawn Before Update Or Youll Get a Flicker Later On Of it Not Translated Yet*
+	spawnTimer += dt;
+	if (spawnTimer >= 1.0)
+	{
+		spawnBugTime++;
+		if (spawnBugTime == 1){ SpawnBug();	spawnBugTime = 0; }
 
+		spawnMushTime++;
+		if (spawnMushTime == 10){ SpawnMushroom();		spawnMushTime = 0; }
+		
+		if (speedBonusTime > 0){ speedBonusTime--;	mMoveSpeed = 1000;	if (speedBonusTime == 0){ mMoveSpeed = 500; } }
 
+		spawnTimer = 0.0f;
+	}
+
+	UpdateBugs(dt);
+	UpdatePickups(dt);
+	UpdateProjectiles(dt);
+
+// 	if (GetAsyncKeyState('T') & 0x8000)
+// 		mInvader->Walk(100.0f*dt);
+// 	if (GetAsyncKeyState('H') & 0x8000)
+// 		mInvader->Yaw(dt);
+// 	if (GetAsyncKeyState('F') & 0x8000)
+// 		mInvader->Yaw(-dt);
+// 	if (GetAsyncKeyState('J') & 0x8000)
+// 		mInvader->Walk(-100.0f*dt);
+
+}
+void Engine::UpdateBugs(float dt)
+{
+	for (int i = 0; i < mInvaders.size(); i++)
+	{
+		if (mInvaders[i]->goToPos){ mInvaders[i]->Walk(100 * dt); }
+		else{ mInvaders[i]->mDead = true; }
+
+		mInvaders[i]->Update(mCam, dt);
+		if (mInvaders[i]->mDead)
+		{
+			
+			delete mInvaders[i];
+			mInvaders[i] = nullptr;
+			mInvaders.erase(mInvaders.begin() + i);
+		}
+	}
+}
+void Engine::UpdatePickups(float dt)
+{
+	for (int i = 0; i < mMushrooms.size(); i++)
+	{
+		mMushrooms[i]->Yaw(dt);
+
+		mMushrooms[i]->Update(mCam, dt);
+		if (CamOnPickUp(mMushrooms[i])){ mMushrooms[i]->mDead = true; speedBonusTime += 5; } //PLAY SOUNDFX
+
+		if (mMushrooms[i]->mDead)
+		{
+			delete mMushrooms[i];
+			mMushrooms[i] = nullptr;
+			mMushrooms.erase(mMushrooms.begin() + i);
+		}
+	}
+}
+void Engine::UpdateProjectiles(float dt)
+{
+	for (int i = 0; i < mProjectiles.size(); i++)
+	{
+		if (!ProjectileBounds(mProjectiles[i])){ mProjectiles[i]->mDead = true;}
+		mProjectiles[i]->Walk(dt*1000);
+		mProjectiles[i]->Update(mCam, dt);
 	
-	//mInvader->Walk(100 * dt);
-	//mInvader->Yaw(dt);
-
-	if (mInvader->goToPos){ mInvader->Walk(100 * dt); }
-	else{ mInvader->SetGoToPoint(MathHelper::RandF(-100.0f, 100.0f), 50.0f, MathHelper::RandF(-100.0f, 100.0f)); }
-
-	if (GetAsyncKeyState('T') & 0x8000)
-		mInvader->Walk(100.0f*dt);
-	if (GetAsyncKeyState('H') & 0x8000)
-		mInvader->Yaw(dt);
-	if (GetAsyncKeyState('F') & 0x8000)
-		mInvader->Yaw(-dt);
-	if (GetAsyncKeyState('J') & 0x8000)
-		mInvader->Walk(-100.0f*dt);
-
-	mInvader->Update(mCam, dt);
-
-	
+		if (mProjectiles[i]->mDead)
+		{
+			delete mProjectiles[i];
+			mProjectiles[i] = nullptr;
+			mProjectiles.erase(mProjectiles.begin() + i);
+		}
+	}
 }
 
 void Engine::DrawScene()
@@ -301,6 +368,13 @@ void Engine::ResetCamMainMenu()
 	mCam.SetPosition(0.0f, 150.0f, -400.0f);
 	mCam.Pitch(XM_PI / 6.5);
 }
+void Engine::ResetCamInGame()
+{
+	mCam.ResetCam();
+	mCam.SetPosition(0.0f, 50.0f, 0.0f);
+	//mCam.Pitch(XM_PI / 2);
+	mWalkCamMode = true;
+}
 void Engine::IncProgress(float dt)
 {
 	(mCompBar->currProgress < 1.0) ? mCompBar->currProgress += dt / 100 : mCompBar->currProgress = 1.0;
@@ -311,6 +385,31 @@ void Engine::IncBugs(float bug)
 	(mBugBar->currProgress < 1.0) ? mBugBar->currProgress += bug : mBugBar->currProgress = 1.0;
 	if (mBugBar->currProgress == 1.0){ *StateMachine::pGameState = GameState::LOSE; }
 }
+bool Engine::CamOnPickUp(Button* pickup)
+{
+	//Convert from 0,0 at center of screen coordinates to 0,0 top left ...  cartesian to screen 
+	float x, z;
+	x = pickup->mPosition.x - pickup->mWidth / 2;
+	z = pickup->mPosition.z - pickup->mWidth / 2;
+
+	bool inX = false;
+	bool inZ = false;
+
+	if (mCam.GetPosition().x > x && mCam.GetPosition().x < x + pickup->mWidth)	{ inX = true; }
+	if (mCam.GetPosition().z > z && mCam.GetPosition().z < z + pickup->mWidth)	{ inZ = true; }
+
+	return(inX && inZ);
+}
+bool Engine::ProjectileBounds(Button* proj)
+{
+	float x, y, z, maxBound = 2000.0f;
+
+	x = abs(proj->mPosition.x);
+	y = abs(proj->mPosition.y);
+	z = abs(proj->mPosition.z);
+
+	return((x < maxBound) && (y < maxBound) && (z < maxBound));
+}
 
 
 //GAME INITS
@@ -320,43 +419,83 @@ void Engine::InitMainMenu()
 	
 
 	//MAKE BUTTONS
-	mPlayButt		= new Button(md3dDevice, L"Textures/play.dds",		80.0f, 40.0f);
-	mSoundButt		= new Button(md3dDevice, L"Textures/sound.dds",		40.0f, 20.0f);
-	mMusicButt		= new Button(md3dDevice, L"Textures/music.dds",		40.0f, 20.0f);
-	mSOnButt		= new Button(md3dDevice, L"Textures/on.dds",		40.0f, 20.0f);
-	mSOffButt		= new Button(md3dDevice, L"Textures/off.dds",		40.0f, 20.0f);
-	mMOnButt		= new Button(md3dDevice, L"Textures/on.dds",		40.0f, 20.0f);
-	mMOffButt		= new Button(md3dDevice, L"Textures/off.dds",		40.0f, 20.0f);
-	mTitleButt		= new Button(md3dDevice, L"Textures/title.dds",		140.0f, 50.0f);
-	mAboutButt		= new Button(md3dDevice, L"Textures/about.dds",		80.0f, 40.0f);
-	mCompiledButt	= new Button(md3dDevice, L"Textures/compiled.dds",	400.0f, 200.0f);
-	mBymeButt		= new Button(md3dDevice, L"Textures/byme.dds",		110.0f, 30.0f);
-	mBugsButt		= new Button(md3dDevice, L"Textures/bugs.dds",		350.0f, 200.0f);
-	mQuitButt		= new Button(md3dDevice, L"Textures/quit.dds",		350.0f, 200.0f);
-	mRestartButt	= new Button(md3dDevice, L"Textures/restart.dds",	350.0f, 200.0f);
-	mPausedButt		= new Button(md3dDevice, L"Textures/paused.dds",	600.0f, 300.0f);
-	mBackButt		= new Button(md3dDevice, L"Textures/back.dds",		80.0f, 40.0f);
-	mAboutMsgButt	= new Button(md3dDevice, L"Textures/aboutmsg.dds", 110.0f, 110.0f);
-	mYouWinButt		= new Button(md3dDevice, L"Textures/youwin.dds", 350.0f, 200.0f);
-	mYouLoseButt	= new Button(md3dDevice, L"Textures/youlose.dds", 350.0f, 200.0f);
-	mRetryButt		= new Button(md3dDevice, L"Textures/retry.dds", 350.0f, 200.0f);
+	mPlayButt		= new Button(md3dDevice,80.0f, 40.0f);
+	mSoundButt		= new Button(md3dDevice, 40.0f, 20.0f);
+	mMusicButt		= new Button(md3dDevice, 40.0f, 20.0f);
+	mSOnButt		= new Button(md3dDevice, 40.0f, 20.0f);
+	mSOffButt		= new Button(md3dDevice, 40.0f, 20.0f);
+	mMOnButt		= new Button(md3dDevice, 40.0f, 20.0f);
+	mMOffButt		= new Button(md3dDevice, 40.0f, 20.0f);
+	mTitleButt		= new Button(md3dDevice, 140.0f, 50.0f);
+	mAboutButt		= new Button(md3dDevice, 80.0f, 40.0f);
+	mCompiledButt	= new Button(md3dDevice, 400.0f, 200.0f);
+	mBymeButt		= new Button(md3dDevice, 110.0f, 30.0f);
+	mBugsButt		= new Button(md3dDevice, 350.0f, 200.0f);
+	mQuitButt		= new Button(md3dDevice, 350.0f, 200.0f);
+	mRestartButt	= new Button(md3dDevice, 350.0f, 200.0f);
+	mPausedButt		= new Button(md3dDevice, 600.0f, 300.0f);
+	mBackButt		= new Button(md3dDevice, 80.0f, 40.0f);
+	mAboutMsgButt	= new Button(md3dDevice, 110.0f, 110.0f);
+	mYouWinButt		= new Button(md3dDevice, 350.0f, 200.0f);
+	mYouLoseButt	= new Button(md3dDevice, 350.0f, 200.0f);
+	mRetryButt		= new Button(md3dDevice, 350.0f, 200.0f);
+
+	mPlayButt->LoadTexture(			md3dDevice, L"Textures/play.dds");
+	mSoundButt->LoadTexture(		md3dDevice, L"Textures/sound.dds");
+	mMusicButt->LoadTexture(		md3dDevice, L"Textures/music.dds");
+	mSOnButt->LoadTexture(			md3dDevice, L"Textures/on.dds");
+	mSOffButt->LoadTexture(			md3dDevice, L"Textures/off.dds");
+	mMOnButt->LoadTexture(			md3dDevice, L"Textures/on.dds");
+	mMOffButt->LoadTexture(			md3dDevice, L"Textures/off.dds");
+	mTitleButt->LoadTexture(		md3dDevice, L"Textures/title.dds");
+	mAboutButt->LoadTexture(		md3dDevice, L"Textures/about.dds");
+	mCompiledButt->LoadTexture(		md3dDevice, L"Textures/compiled.dds");
+	mBymeButt->LoadTexture(			md3dDevice, L"Textures/byme.dds");
+	mBugsButt->LoadTexture(			md3dDevice, L"Textures/bugs.dds");
+	mQuitButt->LoadTexture(			md3dDevice, L"Textures/quit.dds");
+	mRestartButt->LoadTexture(		md3dDevice, L"Textures/restart.dds");
+	mPausedButt->LoadTexture(		md3dDevice, L"Textures/paused.dds");
+	mBackButt->LoadTexture(			md3dDevice, L"Textures/back.dds");
+	mAboutMsgButt->LoadTexture(		md3dDevice, L"Textures/aboutmsg.dds");
+	mYouWinButt->LoadTexture(		md3dDevice, L"Textures/youwin.dds");
+	mYouLoseButt->LoadTexture(		md3dDevice, L"Textures/youlose.dds");
+	mRetryButt->LoadTexture(		md3dDevice, L"Textures/retry.dds");
 
 
-	mInvader		= new Button(md3dDevice, L"Textures/invader.dds", 50.0f, 50.0f,false,true);
-
+	mInvader = new Button(md3dDevice, 50.0f, 50.0f,false,true); 
+	mInvader->LoadTexture(md3dDevice, L"Textures/invader.dds");
 
 
 	//BINARY FLOORS ..Using Buttons .
-	mNorthF			= new Button(md3dDevice, L"Textures/binary.dds", 2500.0f, 1000.0f);
-	mSouthF			= new Button(md3dDevice, L"Textures/binary.dds", 2500.0f, 1000.0f);
-	mWestF			= new Button(md3dDevice, L"Textures/binary.dds", 1000.0f, 500.0f);
-	mEastF			= new Button(md3dDevice, L"Textures/binary.dds", 1000.0f, 500.0f);
+	mNorthF			= new Button(md3dDevice,  2500.0f, 1000.0f);
+	mSouthF			= new Button(md3dDevice,  2500.0f, 1000.0f);
+	mWestF			= new Button(md3dDevice,  1000.0f, 500.0f);
+	mEastF			= new Button(md3dDevice,  1000.0f, 500.0f);
+	mNorthF->LoadTexture(md3dDevice, L"Textures/binary.dds");
+	mSouthF->UseTexture(mNorthF->mTexSRV);
+	mWestF->UseTexture(mNorthF->mTexSRV);
+	mEastF->UseTexture(mNorthF->mTexSRV);
 
-	mCompBar		= new Button(md3dDevice, L"Textures/compBar.dds",	900.0f, 60.0f);
-	mCompBarOL		= new Button(md3dDevice, L"Textures/BarOL.dds",		900.0f, 60.0f);
-	mBugBar			= new Button(md3dDevice, L"Textures/bugsBar.dds",	900.0f, 60.0f);
-	mBugBarOL		= new Button(md3dDevice, L"Textures/BarOL.dds",		900.0f, 60.0f);
-	
+	mCompBar		= new Button(md3dDevice, 900.0f, 60.0f);
+	mCompBarOL		= new Button(md3dDevice, 900.0f, 60.0f);
+	mBugBar			= new Button(md3dDevice, 900.0f, 60.0f);
+	mBugBarOL		= new Button(md3dDevice, 900.0f, 60.0f);
+	mCompBar->LoadTexture(md3dDevice, L"Textures/compBar.dds");
+	mCompBarOL->LoadTexture(md3dDevice, L"Textures/BarOL.dds");
+	mBugBar->LoadTexture(md3dDevice, L"Textures/bugsBar.dds");
+	mBugBarOL->LoadTexture(md3dDevice, L"Textures/BarOL.dds");
+
+	//EXTRA INVADERS ONLY LOADED FOR SHARING THE TEXTURE.. 
+	mInvader2 = new Button(md3dDevice, 50.0f, 50.0f, false, true);
+	mInvader2->LoadTexture(md3dDevice, L"Textures/invader2.dds");
+	mInvader3 = new Button(md3dDevice, 50.0f, 50.0f, false, true);
+	mInvader3->LoadTexture(md3dDevice, L"Textures/invader3.dds");
+	mInvader4 = new Button(md3dDevice, 50.0f, 50.0f, false, true);
+	mInvader4->LoadTexture(md3dDevice, L"Textures/invader4.dds");
+	mMushroom = new Button(md3dDevice, 20.0f, 20.0f, false, true);
+	mMushroom->LoadTexture(md3dDevice, L"Textures/mushroom.dds");
+	mProjectile = new Button(md3dDevice, 10.0f, 10.0f, true);
+	mProjectile->LoadTexture(md3dDevice, L"Textures/diamondPlate.dds");
 
 	//3D UI STUFF
 	mPlayButt->SetPos(0.0f, 50.0f, -200.0f);
@@ -438,8 +577,7 @@ void Engine::InitMainMenu()
 
 	mInvader->reverseLook = true;
 	mInvader->SetPos(0.0f, 50.0f, 500.0f);
-	//mInvader->billboard = true;
-	mInvader->SetGoToPoint(432.0f, 50.0f, 0.0f);
+	mInvader->SetGoToPoint(0.0f, 50.0f, 0.0f);
 
 	
 
@@ -458,8 +596,8 @@ void Engine::InitMainMenu()
 	float texSpeed = 0.01f;
 	mNorthF->useTexTrans = true; mNorthF->texTransMult	= { 0.0f,		-texSpeed,		0.0f };
 	mSouthF->useTexTrans = true; mSouthF->texTransMult	= { 0.0f,		texSpeed,		0.0f };
-	mWestF->useTexTrans = true; mWestF->texTransMult	= { texSpeed,	0.0f,			0.0f };
-	mEastF->useTexTrans = true; mEastF->texTransMult	= { -texSpeed,	0.0f,			0.0f };
+	mWestF->useTexTrans = true;  mWestF->texTransMult	= { texSpeed,	0.0f,			0.0f };
+	mEastF->useTexTrans = true;  mEastF->texTransMult	= { -texSpeed,	0.0f,			0.0f };
 
 
 	GeometryGenerator geoGen;
@@ -508,6 +646,8 @@ void Engine::InitMainMenu()
 	mYouLoseButt->SetVertexOffset(mYouWinButt->GetVertOffset()	+ mYouWinButt->mGrid.Vertices.size());
 	mRetryButt->SetVertexOffset(mYouLoseButt->GetVertOffset()	+ mYouLoseButt->mGrid.Vertices.size());
 	mInvader->SetVertexOffset(mRetryButt->GetVertOffset()		+ mRetryButt->mGrid.Vertices.size());
+	mMushroom->SetVertexOffset(mInvader->GetVertOffset()		+ mInvader->mGrid.Vertices.size());
+	mProjectile->SetVertexOffset(mMushroom->GetVertOffset()		+ mMushroom->mGrid.Vertices.size());
 
 
 	// Cache the index count of each object.
@@ -543,8 +683,8 @@ void Engine::InitMainMenu()
 	mYouLoseButt->SetIndexOffset(	mYouWinButt->GetIndOffset()		+ mYouWinButt->mGrid.Indices.size());
 	mRetryButt->SetIndexOffset(		mYouLoseButt->GetIndOffset()	+ mYouLoseButt->mGrid.Indices.size());
 	mInvader->SetIndexOffset(		mRetryButt->GetIndOffset()		+ mRetryButt->mGrid.Indices.size());
-
-
+	mMushroom->SetIndexOffset(		mInvader->GetIndOffset()		+ mInvader->mGrid.Indices.size());
+	mProjectile->SetIndexOffset(	mMushroom->GetIndOffset()		+ mMushroom->mGrid.Indices.size());
 
 
 	UINT totalVertexCount = grid.Vertices.size()
@@ -576,7 +716,9 @@ void Engine::InitMainMenu()
 		+ mYouWinButt->mGrid.Vertices.size()
 		+ mYouLoseButt->mGrid.Vertices.size()
 		+ mRetryButt->mGrid.Vertices.size()
-		+ mInvader->mGrid.Vertices.size();
+		+ mInvader->mGrid.Vertices.size()
+		+ mMushroom->mGrid.Vertices.size()
+		+ mProjectile->mGrid.Vertices.size();
 
 	UINT totalIndexCount = mGridIndexCount
 		+ mPlayButt->mIndexCount
@@ -607,8 +749,9 @@ void Engine::InitMainMenu()
 		+ mYouWinButt->mIndexCount
 		+ mYouLoseButt->mIndexCount
 		+ mRetryButt->mIndexCount
-		+ mInvader->mIndexCount;
-
+		+ mInvader->mIndexCount
+		+ mMushroom->mIndexCount
+		+ mProjectile->mIndexCount;
 
 
 	//
@@ -654,6 +797,8 @@ void Engine::InitMainMenu()
 	mYouLoseButt->LoadVertData(	vertices, k);
 	mRetryButt->LoadVertData(	vertices, k);
 	mInvader->LoadVertData(		vertices, k);
+	mMushroom->LoadVertData(	vertices, k);
+	mProjectile->LoadVertData(	vertices, k);
 
 	//****************************************************************************
 
@@ -703,6 +848,8 @@ void Engine::InitMainMenu()
 	indices.insert(indices.end(), mYouLoseButt->mGrid.Indices.begin(),	mYouLoseButt->mGrid.Indices.end());
 	indices.insert(indices.end(), mRetryButt->mGrid.Indices.begin(),	mRetryButt->mGrid.Indices.end());
 	indices.insert(indices.end(), mInvader->mGrid.Indices.begin(),		mInvader->mGrid.Indices.end());
+	indices.insert(indices.end(), mMushroom->mGrid.Indices.begin(),		mMushroom->mGrid.Indices.end());
+	indices.insert(indices.end(), mProjectile->mGrid.Indices.begin(),	mProjectile->mGrid.Indices.end());
 	
 
 	//CREATE INDEX BUFFER
@@ -1029,7 +1176,20 @@ void Engine::DrawGameOn()
 		mEastF->Draw(			activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 		mSouthF->Draw(			activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 
-		mInvader->Draw(			activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		for (int i = 0; i < mInvaders.size(); i++)
+		{
+			mInvaders[i]->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		}
+		
+		for (int i = 0; i < mMushrooms.size(); i++)
+		{
+			mMushrooms[i]->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		}
+
+		for (int i = 0; i < mProjectiles.size(); i++)
+		{
+			mProjectiles[i]->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		}
 
 		//DRAW BUTTS
 		activeTexTech = Effects::BasicFX->Light2TexAlphaClipTech;
@@ -1196,8 +1356,8 @@ void Engine::OnKeyUP(WPARAM btnState)
 {
 	switch (btnState)
 	{
-	case 0x31:(mWireMode) ? mWireMode = false : mWireMode = true; break;	// 1 KEY
-	case 0x32:(mBFCull) ? mBFCull = false : mBFCull = true; break;	// 2 KEY
+	case 0x31:(mWireMode)	? mWireMode = false : mWireMode = true; break;	// 1 KEY
+	case 0x32:(mBFCull)		? mBFCull	= false	: mBFCull	= true; break;	// 2 KEY
 	case 0x50:if (*StateMachine::pGameState == GameState::GAMEON || *StateMachine::pGameState == GameState::PAUSED)
 		{(*StateMachine::pGameState == GameState::PAUSED) ? *StateMachine::pGameState = GameState::GAMEON : *StateMachine::pGameState = GameState::PAUSED;}break;
 	}
@@ -1211,16 +1371,16 @@ void Engine::KeyboardHandler(float dt)
 	if (*StateMachine::pGameState == GameState::GAMEON)
 	{
 		if (GetAsyncKeyState('W') & 0x8000)
-			mCam.Walk(1300.0f*dt);
+			mCam.Walk(mMoveSpeed*dt);
 	
 		if (GetAsyncKeyState('S') & 0x8000)
-			mCam.Walk(-1300.0f*dt);
+			mCam.Walk(-mMoveSpeed*dt);
 	
 		if (GetAsyncKeyState('A') & 0x8000)
-			mCam.Strafe(-1300.0f*dt);
+			mCam.Strafe(-mMoveSpeed*dt);
 	
 		if (GetAsyncKeyState('D') & 0x8000)
-			mCam.Strafe(1300.0f*dt);
+			mCam.Strafe(mMoveSpeed*dt);
 	
 
 	//
@@ -1254,6 +1414,7 @@ void Engine::BtnsMainMenu(float x, float y, bool clicked)
 		if (clicked)
 		{
 			*StateMachine::pGameState = GameState::GAMEON;
+			ResetCamInGame();
 		}
 	}
 	else{ mPlayButt->hovering = false; }
@@ -1326,7 +1487,7 @@ void Engine::BtnsPaused(float x, float y, bool clicked)
 			*StateMachine::pGameState = GameState::MAINMENU;
 			mWalkCamMode = false;
 			ResetCamMainMenu();
-
+			
 		}
 	}
 	else{ mQuitButt->hovering = false; }
@@ -1339,22 +1500,25 @@ void Engine::BtnsPaused(float x, float y, bool clicked)
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress = 0.0f;
 			*StateMachine::pGameState = GameState::GAMEON;
+			ResetCamInGame();
 		}
 	}
 	else{ mRestartButt->hovering = false; }
 }
 void Engine::BtnsGameOn(float x, float y, bool clicked)
 {
-	if (InButton3D(m_ScreenWidth/2, m_ScreenHeight/2, mInvader))
-	{
-		mInvader->hovering = true;
-		if (clicked)
-		{
+	if (clicked){ SpawnProjectile(); }
 
-
-		}
-	}
-	else{ mInvader->hovering = false; }
+// 	if (InButton3D(m_ScreenWidth/2, m_ScreenHeight/2, mInvader))
+// 	{
+// 		mInvader->hovering = true;
+// 		if (clicked)
+// 		{
+// 
+// 
+// 		}
+// 	}
+// 	else{ mInvader->hovering = false; }
 }
 void Engine::BtnsWin(float x, float y, bool clicked)
 {
@@ -1474,4 +1638,89 @@ bool Engine::InButton2D(float sx, float sy, Button* button)
 
 
 	return(inX && inY);
+}
+
+
+
+//SPAWNERS 
+void Engine::SpawnBug()
+{
+	//Varrying spawn sides.. 1000z or -1000z then Rand -1000 to 1000 on X orrrr
+	//						 1000x or -1000x and  Rand -1000 to 1000 on the Z ..
+	float outSkirtZ;
+	float outSkirtX;
+	if (MathHelper::RandF() > 0.5)
+	{
+		MathHelper::RandF() > 0.5 ? outSkirtZ = -1000 : outSkirtZ = 1000;
+		outSkirtX = MathHelper::RandF(-1000.0f, 1000.0f);
+	}
+	else
+	{
+		MathHelper::RandF() > 0.5 ? outSkirtX = -1000 : outSkirtX = 1000;
+		outSkirtZ = MathHelper::RandF(-1000.0f, 1000.0f);
+	}
+//	float randSize = MathHelper::RandF(10.0f, 50.0f); // TODO... IMPLEMENT A RANDOM SCALE SIZE;
+	Button* Invader = new Button(md3dDevice, 50.0f, 50.0f, false, true);
+
+	float num = MathHelper::RandF();
+	num > 0.75 ? Invader->UseTexture(mInvader->mTexSRV)	 :
+	num > 0.50 ? Invader->UseTexture(mInvader2->mTexSRV) :
+	num > 0.25 ? Invader->UseTexture(mInvader3->mTexSRV) :
+	Invader->UseTexture(mInvader4->mTexSRV);
+
+	Invader->reverseLook = true;
+
+	Invader->SetPos(outSkirtX, 30.0f, outSkirtZ);
+
+	Invader->SetGoToPoint(0.0f, 30.0f, 0.0f); // Go to Center 
+	
+	Invader->SetVertexOffset(mInvader->GetVertOffset());
+	Invader->SetIndexOffset(mInvader->mIndexOffset);
+	Invader->mIndexCount = mInvader->mIndexCount;
+	Invader->mMeshBox = mInvader->mMeshBox;
+	mInvaders.push_back(Invader);
+	IncBugs(0.03);
+}
+void Engine::SpawnMushroom()
+{
+	float outSkirtZ;
+	float outSkirtX;
+
+	outSkirtX = MathHelper::RandF(-500.0f, 500.0f);
+	outSkirtZ = MathHelper::RandF(-500.0f, 500.0f);
+	
+	Button* Mush = new Button(md3dDevice, 50.0f, 50.0f, false, true);
+	Mush->UseTexture(mMushroom->mTexSRV);
+	Mush->reverseLook = true;
+	Mush->SetPos(outSkirtX, 20.0f, outSkirtZ);
+
+	Mush->SetVertexOffset(mMushroom->GetVertOffset());
+	Mush->SetIndexOffset(mMushroom->mIndexOffset);
+	Mush->mIndexCount = mMushroom->mIndexCount;
+	Mush->mMeshBox = mMushroom->mMeshBox;
+	mMushrooms.push_back(Mush);
+}
+void Engine::SpawnProjectile()
+{
+	float outSkirtZ;
+	float outSkirtX;
+
+	outSkirtX = mCam.GetPosition().x;
+	outSkirtZ = mCam.GetPosition().z;
+
+	Button* Proj = new Button(md3dDevice, 10.0f, 10.0f, true);
+	Proj->UseTexture(mProjectile->mTexSRV);
+	Proj->reverseLook = true;
+	Proj->SetPos(outSkirtX, mCam.GetPosition().y-15.0f, outSkirtZ);
+
+	Proj->SetVertexOffset(mProjectile->GetVertOffset());
+	Proj->SetIndexOffset(mProjectile->mIndexOffset);
+	Proj->mIndexCount = mProjectile->mIndexCount;
+ 	Proj->useTexTrans = true;
+	Proj->texTransMult = { 1.0f, 0.0f, 0.0f };
+	Proj->mLook = mCam.GetLook();
+	
+ 	Proj->origTexScale = 2.0f;
+	Proj->mMeshBox = mProjectile->mMeshBox;
+	mProjectiles.push_back(Proj);
 }

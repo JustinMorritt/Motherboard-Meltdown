@@ -1,7 +1,7 @@
 #include "Button.h"
 
 //Makes a Square by default 
-Button::Button(ID3D11Device* device, std::wstring texFilename, float width, float height, bool sphere, bool upRightSquare) :
+Button::Button(ID3D11Device* device, float width, float height, bool sphere, bool upRightSquare) :
 mPosition(0.0f, 0.0f, 0.0f),
 mRight(1.0f, 0.0f, 0.0f),
 mUp(0.0f, 1.0f, 0.0f),
@@ -25,10 +25,10 @@ goToPos(false),
 billboard(false),
 flipUpright(false),
 reverseLook(false),
+mDead(false),
 turnAngle(0.0f)
 {
-	//CREAT TEXTURE
-	HR(D3DX11CreateShaderResourceViewFromFile(device, texFilename.c_str(), 0, 0, &mTexSRV, 0));
+	//CREATE TEXTURE
 
 
 	//SET MATERIAL
@@ -42,7 +42,12 @@ turnAngle(0.0f)
 	//FLOOR PLANE
 	XMMATRIX I = XMMatrixIdentity();
 	XMStoreFloat4x4(&mWorld, I);
-	if (sphere){		geoGen.CreateSphere(width, height, height, mGrid); } //height is slice count .. width for radius
+	if (sphere)
+	{		
+		geoGen.CreateSphere(width, height, height, mGrid);  //height is slice count .. width for radius
+
+
+	}
 	if (upRightSquare)
 	{
 	
@@ -51,7 +56,7 @@ turnAngle(0.0f)
 
 
 	}
-	else
+	if (!sphere && !upRightSquare)
 	{
 		geoGen.CreateGrid(width, height, 2 ,2, mGrid);
 	}
@@ -64,8 +69,9 @@ turnAngle(0.0f)
 
 Button::~Button()
 {
-	mTexSRV->Release();
-	mTexSRV = nullptr;
+	//Commented so you have to intentionally release these .. some are sharing textures
+// 	mTexSRV->Release();
+ 	mTexSRV = nullptr;
 }
 
 void Button::SetPos(float x, float y, float z)
@@ -285,6 +291,16 @@ void Button::LoadVertData(std::vector<Vertex::Basic32>& verts, UINT& k)
 
 
 
+void Button::LoadTexture(ID3D11Device* device , std::wstring texFilename)
+{
+	HR(D3DX11CreateShaderResourceViewFromFile(device, texFilename.c_str(), 0, 0, &mTexSRV, 0));
+}
+
+void Button::UseTexture(ID3D11ShaderResourceView* tex)
+{
+	mTexSRV = tex;
+}
+
 int Button::GetVertOffset()
 {
 	return mVertexOffset;
@@ -480,5 +496,5 @@ void Button::SetGoToPoint(float x, float y, float z)
 
 	float theAngle = XMVectorGetZ(angle);
 	turnAngle = theAngle;
-	/*XMVectorGetX(end) < mPosition.x ? Yaw(theAngle) :*/ Yaw(theAngle);
+	XMVectorGetX(end) < mPosition.x ? Yaw(-theAngle) : Yaw(theAngle);
 }

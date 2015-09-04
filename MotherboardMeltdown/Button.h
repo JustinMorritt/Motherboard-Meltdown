@@ -12,7 +12,7 @@
 class Button
 {
 public:
-	Button(ID3D11Device* device,std::wstring texFilename, float width, float height, bool sphere = false, bool upRightSquare= false);
+	Button(ID3D11Device* device, float width, float height, bool sphere = false, bool upRightSquare= false);
 	~Button();
 	void SetPos(float x, float y, float z);
 	void SetRot(float x, float y, float z);
@@ -23,6 +23,8 @@ public:
 	void SetVertexOffset(int offSet);
 	void SetIndexOffset(int offSet);
 	void LoadVertData(std::vector<Vertex::Basic32>& verts, UINT& k);
+	void LoadTexture(ID3D11Device* device, std::wstring texFilename);
+	void UseTexture(ID3D11ShaderResourceView* tex);
 
 	// Strafe/Walk
 	void Strafe(float d);
@@ -99,6 +101,7 @@ public:
 	bool billboard;
 	bool flipUpright;
 	bool reverseLook;
+	bool mDead;
 
 	float origTexScale;
 

@@ -42,8 +42,10 @@ public:
 	void ClearScene();
 	void RestoreStates();
 	void ResetCamMainMenu();
+	void ResetCamInGame();
 	void IncProgress(float dt);
 	void IncBugs(float dt);
+
 
 	//SCENE INITS
 	void InitMainMenu();
@@ -60,8 +62,17 @@ public:
 	void DrawWin();
 	void DrawLose();
 
+	//UPDATES
 	void UpdateMainMenu(float dt);
 	void UpdateGame(float dt);
+	void UpdateBugs(float dt);
+	void UpdatePickups(float dt);
+	void UpdateProjectiles(float dt);
+
+	//SPAWNERS
+	void SpawnBug();
+	void SpawnMushroom();
+	void SpawnProjectile();
 
 
 	//BUTTON HANDLERS
@@ -73,6 +84,8 @@ public:
 	void BtnsLose(float x, float y, bool clicked);
 	bool InButton3D(float sx, float sy, Button* button);
 	bool InButton2D(float sx, float sy, Button* button);
+	bool CamOnPickUp(Button* pickup);
+	bool ProjectileBounds(Button* proj);
 
 private:
 	Sky* mSky;
@@ -104,7 +117,16 @@ private:
 	Button* mYouLoseButt;
 	Button* mRetryButt;
 	Button* mInvader;
+
+	Button* mInvader2;
+	Button* mInvader3;
+	Button* mInvader4;
+	Button* mMushroom;
+	Button* mProjectile;
+
 	std::vector<Button*> mInvaders;
+	std::vector<Button*> mMushrooms;
+	std::vector<Button*> mProjectiles;
 
 	//Models
 	std::vector<BasicModelInstance> mModelInstances;
@@ -123,7 +145,11 @@ private:
 	Button* mBugBar;
 	Button* mBugBarOL;
 
-
+	//Spawn Timers
+	float spawnTimer; // Set this per second ..
+	int spawnBugTime;
+	int spawnMushTime;
+	int speedBonusTime;
 
 	ID3D11ShaderResourceView* mFlareTexSRV;
 	ID3D11ShaderResourceView* mRainTexSRV;
@@ -158,7 +184,7 @@ private:
 
 	XMMATRIX mOrthoWorld;
 	
-
+	int mMoveSpeed;
 };
 
 
