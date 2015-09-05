@@ -42,8 +42,13 @@ Engine::Engine(HINSTANCE hInstance)
 	spawnMushTime(0),
 	speedBonusTime(0),
 	mProjectile(0),
+	mNorthW(0),
+	mSouthW(0),
+	mWestW(0),
+	mEastW(0),
 	mMoveSpeed(500),
 	spawnTimer(0.0f),
+	bugsWorth(0.03f),
 	fullyLoaded(false)
 {
 	mMainWndCaption = L"Motherboard Meltdown";
@@ -128,8 +133,10 @@ bool Engine::Init()
 
 	InitMainMenu();
 
-	mSky = new Sky(md3dDevice, L"Textures/MarriottMadisonWest.dds", 5000.0f);
-
+	//mSky = new Sky(md3dDevice, L"Textures/MarriottMadisonWest.dds", 5000.0f);
+	mSky = new Sky(md3dDevice, L"Textures/ArstaBridge.dds", 5000.0f);
+	//mSky = new Sky(md3dDevice, L"Textures/DallasW.dds", 5000.0f);
+	
 
 //FIRE EMITTER
 //mRandomTexSRV = d3dHelper::CreateRandomTexture1DSRV(md3dDevice);
@@ -196,11 +203,14 @@ void Engine::UpdateMainMenu(float dt)
 	mAboutMsgButt->Update(mCam, dt);
 	mBymeButt->Update(mCam, dt);
 
-
 	mNorthF->Update(mCam, dt);
 	mWestF->Update(mCam, dt);
 	mEastF->Update(mCam, dt);
 	mSouthF->Update(mCam, dt);
+	mNorthW->Update(mCam, dt);
+	mSouthW->Update(mCam, dt);
+	mWestW->Update(mCam, dt);
+	mEastW->Update(mCam, dt);
 }
 void Engine::UpdateGame(float dt)
 {
@@ -219,14 +229,14 @@ void Engine::UpdateGame(float dt)
 	mYouWinButt->Update(mCam, dt);
 	mYouLoseButt->Update(mCam, dt);
 	mRetryButt->Update(mCam, dt);
-	
+
 	
 	//TIMER STUFF / SPAWN RATES   *Spawn Before Update Or Youll Get a Flicker Later On Of it Not Translated Yet*
 	spawnTimer += dt;
 	if (spawnTimer >= 1.0)
 	{
 		spawnBugTime++;
-		if (spawnBugTime == 1){ SpawnBug();	spawnBugTime = 0; }
+		if (spawnBugTime == 1){ SpawnBug(); IncBugs(bugsWorth); spawnBugTime = 0; }
 
 		spawnMushTime++;
 		if (spawnMushTime == 10){ SpawnMushroom();		spawnMushTime = 0; }
@@ -289,6 +299,7 @@ void Engine::UpdateProjectiles(float dt)
 	for (int i = 0; i < mProjectiles.size(); i++)
 	{
 		if (!ProjectileBounds(mProjectiles[i])){ mProjectiles[i]->mDead = true;}
+		if (ProjectileHitBug(mProjectiles[i])){/*MAKE PROJECTILE EXPLODE*/}
 		mProjectiles[i]->Walk(dt*1000);
 		mProjectiles[i]->Update(mCam, dt);
 	
@@ -382,8 +393,20 @@ void Engine::IncProgress(float dt)
 }
 void Engine::IncBugs(float bug)
 {
-	(mBugBar->currProgress < 1.0) ? mBugBar->currProgress += bug : mBugBar->currProgress = 1.0;
-	if (mBugBar->currProgress == 1.0){ *StateMachine::pGameState = GameState::LOSE; }
+	if (mBugBar->currProgress < 1.0) 
+	{
+		mBugBar->currProgress += bug;
+		if (mBugBar->currProgress >= 1.0)
+		{
+			mBugBar->currProgress = 1.0; *StateMachine::pGameState = GameState::LOSE;
+		}
+	} 
+	
+}
+void Engine::DecBugs(float bug)
+{
+	if(mBugBar->currProgress > 0)mBugBar->currProgress -= bug;
+	if(mBugBar->currProgress < 0)mBugBar->currProgress = 0.0f;
 }
 bool Engine::CamOnPickUp(Button* pickup)
 {
@@ -410,6 +433,18 @@ bool Engine::ProjectileBounds(Button* proj)
 
 	return((x < maxBound) && (y < maxBound) && (z < maxBound));
 }
+bool Engine::ProjectileHitBug(Button* proj)
+{
+	bool hit = false;
+	for (int i = 0; i < mInvaders.size(); i++)
+	{
+		if (XNA::IntersectSphereSphere(&mInvaders[i]->mSphereCollider, &proj->mSphereCollider))
+		{
+			hit = true; mInvaders[i]->mDead = true; DecBugs(bugsWorth);
+		}
+	}
+	return hit;
+}
 
 
 //GAME INITS
@@ -419,14 +454,14 @@ void Engine::InitMainMenu()
 	
 
 	//MAKE BUTTONS
-	mPlayButt		= new Button(md3dDevice,80.0f, 40.0f);
+	mPlayButt		= new Button(md3dDevice, 80.0f, 40.0f);
 	mSoundButt		= new Button(md3dDevice, 40.0f, 20.0f);
 	mMusicButt		= new Button(md3dDevice, 40.0f, 20.0f);
 	mSOnButt		= new Button(md3dDevice, 40.0f, 20.0f);
 	mSOffButt		= new Button(md3dDevice, 40.0f, 20.0f);
 	mMOnButt		= new Button(md3dDevice, 40.0f, 20.0f);
 	mMOffButt		= new Button(md3dDevice, 40.0f, 20.0f);
-	mTitleButt		= new Button(md3dDevice, 140.0f, 50.0f);
+	mTitleButt		= new Button(md3dDevice, 200.0f, 50.0f);
 	mAboutButt		= new Button(md3dDevice, 80.0f, 40.0f);
 	mCompiledButt	= new Button(md3dDevice, 400.0f, 200.0f);
 	mBymeButt		= new Button(md3dDevice, 110.0f, 30.0f);
@@ -436,8 +471,8 @@ void Engine::InitMainMenu()
 	mPausedButt		= new Button(md3dDevice, 600.0f, 300.0f);
 	mBackButt		= new Button(md3dDevice, 80.0f, 40.0f);
 	mAboutMsgButt	= new Button(md3dDevice, 110.0f, 110.0f);
-	mYouWinButt		= new Button(md3dDevice, 350.0f, 200.0f);
-	mYouLoseButt	= new Button(md3dDevice, 350.0f, 200.0f);
+	mYouWinButt		= new Button(md3dDevice, 750.0f, 350.0f);
+	mYouLoseButt	= new Button(md3dDevice, 750.0f, 350.0f);
 	mRetryButt		= new Button(md3dDevice, 350.0f, 200.0f);
 
 	mPlayButt->LoadTexture(			md3dDevice, L"Textures/play.dds");
@@ -462,19 +497,28 @@ void Engine::InitMainMenu()
 	mRetryButt->LoadTexture(		md3dDevice, L"Textures/retry.dds");
 
 
-	mInvader = new Button(md3dDevice, 50.0f, 50.0f,false,true); 
+	mInvader = new Button(md3dDevice, 50.0f, 50.0f, 0.0f, false, true);
 	mInvader->LoadTexture(md3dDevice, L"Textures/invader.dds");
-
+	mInvader->SetSphereCollider(20.0f);
 
 	//BINARY FLOORS ..Using Buttons .
 	mNorthF			= new Button(md3dDevice,  2500.0f, 1000.0f);
 	mSouthF			= new Button(md3dDevice,  2500.0f, 1000.0f);
 	mWestF			= new Button(md3dDevice,  1000.0f, 500.0f);
 	mEastF			= new Button(md3dDevice,  1000.0f, 500.0f);
+	mNorthW			= new Button(md3dDevice, 2530.0f, 40.0f,	30.0f,	    false, false, true);
+	mSouthW			= new Button(md3dDevice, 2530.0f, 40.0f,	30.0f,	    false, false, true);
+	mWestW			= new Button(md3dDevice, 30.0f,   40.0f,	2470.0f,	false, false, true);
+	mEastW			= new Button(md3dDevice, 30.0f,   40.0f,	2470.0f,	false, false, true);
+
 	mNorthF->LoadTexture(md3dDevice, L"Textures/binary.dds");
 	mSouthF->UseTexture(mNorthF->mTexSRV);
 	mWestF->UseTexture(mNorthF->mTexSRV);
 	mEastF->UseTexture(mNorthF->mTexSRV);
+	mNorthW->UseTexture(mNorthF->mTexSRV);
+	mSouthW->UseTexture(mNorthF->mTexSRV);
+	mWestW->UseTexture(mNorthF->mTexSRV);
+	mEastW->UseTexture(mNorthF->mTexSRV);
 
 	mCompBar		= new Button(md3dDevice, 900.0f, 60.0f);
 	mCompBarOL		= new Button(md3dDevice, 900.0f, 60.0f);
@@ -486,16 +530,21 @@ void Engine::InitMainMenu()
 	mBugBarOL->LoadTexture(md3dDevice, L"Textures/BarOL.dds");
 
 	//EXTRA INVADERS ONLY LOADED FOR SHARING THE TEXTURE.. 
-	mInvader2 = new Button(md3dDevice, 50.0f, 50.0f, false, true);
+	mInvader2 = new Button(md3dDevice, 50.0f, 50.0f,0.0f, false, true);
 	mInvader2->LoadTexture(md3dDevice, L"Textures/invader2.dds");
-	mInvader3 = new Button(md3dDevice, 50.0f, 50.0f, false, true);
+	mInvader2->SetSphereCollider(20.0f);
+	mInvader3 = new Button(md3dDevice, 50.0f, 50.0f, 0.0f, false, true);
 	mInvader3->LoadTexture(md3dDevice, L"Textures/invader3.dds");
-	mInvader4 = new Button(md3dDevice, 50.0f, 50.0f, false, true);
+	mInvader3->SetSphereCollider(20.0f);
+	mInvader4 = new Button(md3dDevice, 50.0f, 50.0f, 0.0f, false, true);
 	mInvader4->LoadTexture(md3dDevice, L"Textures/invader4.dds");
-	mMushroom = new Button(md3dDevice, 20.0f, 20.0f, false, true);
+	mInvader4->SetSphereCollider(20.0f);
+	mMushroom = new Button(md3dDevice, 20.0f, 20.0f, 0.0f, false, true);
 	mMushroom->LoadTexture(md3dDevice, L"Textures/mushroom.dds");
-	mProjectile = new Button(md3dDevice, 10.0f, 10.0f, true);
+	mMushroom->SetSphereCollider(10.0f);
+	mProjectile = new Button(md3dDevice, 10.0f, 10.0f, 0.0f, true);
 	mProjectile->LoadTexture(md3dDevice, L"Textures/diamondPlate.dds");
+	mProjectile->SetSphereCollider(5.0f);
 
 	//3D UI STUFF
 	mPlayButt->SetPos(0.0f, 50.0f, -200.0f);
@@ -583,22 +632,33 @@ void Engine::InitMainMenu()
 
 
 	//FLOORS
-	mNorthF->SetPos(0.0f, -0.1f, 750.0f);
-	mSouthF->SetPos(0.0f, -0.1f, -750.0f);
-	mWestF->SetPos(750.0f, -0.1f, 0.0f);
-	mEastF->SetPos(-750.0f, -0.1f, 0.0f);
+	mNorthF->SetPos(0.0f,		-0.5f,	750.0f);
+	mSouthF->SetPos(0.0f,		-0.5f,	-750.0f);
+	mWestF->SetPos(	750.0f,		-0.5f,	0.0f);
+	mEastF->SetPos(	-750.0f,	-0.5f,	0.0f);
+	mNorthW->SetPos(0.0f,		20.1f, 1250.0f);
+	mSouthW->SetPos(0.0f,		20.1f, -1250.0f);
+	mWestW->SetPos(	1250.0f,	20.1f,	0.0f);
+	mEastW->SetPos(-1250.0f,	20.1f, 0.0f);
 
-	mNorthF->origTexScale = 32.0f;
-	mSouthF->origTexScale = 32.0f;
-	mWestF->origTexScale =  12.0f;
-	mEastF->origTexScale =  12.0f;
+	mNorthF->origTexScale	= { 32.0f, 32.0f, 32.0f };
+	mSouthF->origTexScale	= { 32.0f, 32.0f, 32.0f };
+	mWestF->origTexScale	= { 12.0f, 12.0f, 12.0f };
+	mEastF->origTexScale	= { 12.0f, 12.0f, 12.0f };
+	mNorthW->origTexScale	= { 38.0f, 2.0f, 1.0f };
+	mSouthW->origTexScale	= { 38.0f, 2.0f, 1.0f };
+	mWestW->origTexScale	= { 38.0f, 2.0f, 1.0f };
+	mEastW->origTexScale	= { 38.0f, 2.0f, 1.0f };
 
 	float texSpeed = 0.01f;
 	mNorthF->useTexTrans = true; mNorthF->texTransMult	= { 0.0f,		-texSpeed,		0.0f };
 	mSouthF->useTexTrans = true; mSouthF->texTransMult	= { 0.0f,		texSpeed,		0.0f };
-	mWestF->useTexTrans = true;  mWestF->texTransMult	= { texSpeed,	0.0f,			0.0f };
-	mEastF->useTexTrans = true;  mEastF->texTransMult	= { -texSpeed,	0.0f,			0.0f };
-
+	mWestF ->useTexTrans = true;  mWestF->texTransMult	= { texSpeed,	0.0f,			0.0f };
+	mEastF ->useTexTrans = true;  mEastF->texTransMult	= { -texSpeed,	0.0f,			0.0f };
+	mNorthW->useTexTrans = true; mNorthW->texTransMult	= { 0.0f,		-texSpeed*10,		0.0f };
+	mSouthW->useTexTrans = true; mSouthW->texTransMult	= { 0.0f,		-texSpeed*10,		0.0f };
+	mWestW ->useTexTrans = true;  mWestW->texTransMult	= { 0.0f,		-texSpeed*10,		0.0f };
+	mEastW ->useTexTrans = true;  mEastW->texTransMult	= { 0.0f,		-texSpeed*10,		0.0f };
 
 	GeometryGenerator geoGen;
 
@@ -612,7 +672,7 @@ void Engine::InitMainMenu()
 
 	GeometryGenerator::MeshData grid;
 
-	geoGen.CreateGrid(500.0f, 500.0f, 2, 2, grid);
+	geoGen.CreateGrid(550.0f, 650.0f, 2, 2, grid);
 
 	// Cache the vertex offsets to each object in the concatenated vertex buffer.
 	mGridVertexOffset = 0; // FIRST OBJECT FOR OFFSET
@@ -648,7 +708,10 @@ void Engine::InitMainMenu()
 	mInvader->SetVertexOffset(mRetryButt->GetVertOffset()		+ mRetryButt->mGrid.Vertices.size());
 	mMushroom->SetVertexOffset(mInvader->GetVertOffset()		+ mInvader->mGrid.Vertices.size());
 	mProjectile->SetVertexOffset(mMushroom->GetVertOffset()		+ mMushroom->mGrid.Vertices.size());
-
+	mNorthW->SetVertexOffset(mProjectile->GetVertOffset()		+ mProjectile->mGrid.Vertices.size());
+	mSouthW->SetVertexOffset(mNorthW->GetVertOffset()			+ mNorthW->mGrid.Vertices.size());
+	mWestW ->SetVertexOffset(mSouthW->GetVertOffset()			+ mSouthW->mGrid.Vertices.size());
+	mEastW ->SetVertexOffset(mWestW->GetVertOffset()			+ mWestW->mGrid.Vertices.size());
 
 	// Cache the index count of each object.
 	mGridIndexCount = grid.Indices.size();
@@ -685,7 +748,10 @@ void Engine::InitMainMenu()
 	mInvader->SetIndexOffset(		mRetryButt->GetIndOffset()		+ mRetryButt->mGrid.Indices.size());
 	mMushroom->SetIndexOffset(		mInvader->GetIndOffset()		+ mInvader->mGrid.Indices.size());
 	mProjectile->SetIndexOffset(	mMushroom->GetIndOffset()		+ mMushroom->mGrid.Indices.size());
-
+	mNorthW->SetIndexOffset(		mProjectile->GetIndOffset()		+ mProjectile->mGrid.Indices.size());
+	mSouthW->SetIndexOffset(		mNorthW->GetIndOffset()			+ mNorthW->mGrid.Indices.size());
+	mWestW->SetIndexOffset(			mSouthW->GetIndOffset()			+ mSouthW->mGrid.Indices.size());
+	mEastW->SetIndexOffset(			mWestW->GetIndOffset()			+ mWestW->mGrid.Indices.size());
 
 	UINT totalVertexCount = grid.Vertices.size()
 		+ mPlayButt->mGrid.Vertices.size()
@@ -718,7 +784,11 @@ void Engine::InitMainMenu()
 		+ mRetryButt->mGrid.Vertices.size()
 		+ mInvader->mGrid.Vertices.size()
 		+ mMushroom->mGrid.Vertices.size()
-		+ mProjectile->mGrid.Vertices.size();
+		+ mProjectile->mGrid.Vertices.size()
+		+ mNorthW->mGrid.Vertices.size()
+		+ mSouthW->mGrid.Vertices.size()
+		+ mWestW->mGrid.Vertices.size()
+		+ mEastW->mGrid.Vertices.size();
 
 	UINT totalIndexCount = mGridIndexCount
 		+ mPlayButt->mIndexCount
@@ -751,7 +821,11 @@ void Engine::InitMainMenu()
 		+ mRetryButt->mIndexCount
 		+ mInvader->mIndexCount
 		+ mMushroom->mIndexCount
-		+ mProjectile->mIndexCount;
+		+ mProjectile->mIndexCount
+		+ mNorthW->mIndexCount
+		+ mSouthW->mIndexCount
+		+ mWestW->mIndexCount
+		+ mEastW->mIndexCount;
 
 
 	//
@@ -799,6 +873,10 @@ void Engine::InitMainMenu()
 	mInvader->LoadVertData(		vertices, k);
 	mMushroom->LoadVertData(	vertices, k);
 	mProjectile->LoadVertData(	vertices, k);
+	mNorthW->LoadVertData(		vertices, k);
+	mSouthW->LoadVertData(		vertices, k);
+	mWestW->LoadVertData(		vertices, k);
+	mEastW->LoadVertData(		vertices, k);
 
 	//****************************************************************************
 
@@ -850,7 +928,11 @@ void Engine::InitMainMenu()
 	indices.insert(indices.end(), mInvader->mGrid.Indices.begin(),		mInvader->mGrid.Indices.end());
 	indices.insert(indices.end(), mMushroom->mGrid.Indices.begin(),		mMushroom->mGrid.Indices.end());
 	indices.insert(indices.end(), mProjectile->mGrid.Indices.begin(),	mProjectile->mGrid.Indices.end());
-	
+	indices.insert(indices.end(), mNorthW->mGrid.Indices.begin(),		mNorthW->mGrid.Indices.end());
+	indices.insert(indices.end(), mSouthW->mGrid.Indices.begin(),		mSouthW->mGrid.Indices.end());
+	indices.insert(indices.end(), mWestW->mGrid.Indices.begin(),		mWestW->mGrid.Indices.end());
+	indices.insert(indices.end(), mEastW->mGrid.Indices.begin(),		mEastW->mGrid.Indices.end());
+
 
 	//CREATE INDEX BUFFER
 	D3D11_BUFFER_DESC ibd;
@@ -1162,19 +1244,14 @@ void Engine::DrawGameOn()
 		md3dImmediateContext->DrawIndexed(mGridIndexCount, mGridIndexOffset, mGridVertexOffset);
 
 
-
-
-
-
-
-
-
-
-
-		mNorthF->Draw(			activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
-		mWestF->Draw(			activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
-		mEastF->Draw(			activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
-		mSouthF->Draw(			activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mNorthF->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mWestF ->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mEastF ->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mSouthF->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mNorthW->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mSouthW->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mWestW ->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mEastW ->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 
 		for (int i = 0; i < mInvaders.size(); i++)
 		{
@@ -1673,13 +1750,13 @@ void Engine::SpawnBug()
 	Invader->SetPos(outSkirtX, 30.0f, outSkirtZ);
 
 	Invader->SetGoToPoint(0.0f, 30.0f, 0.0f); // Go to Center 
-	
+	Invader->SetSphereCollider(20.0f);
 	Invader->SetVertexOffset(mInvader->GetVertOffset());
 	Invader->SetIndexOffset(mInvader->mIndexOffset);
 	Invader->mIndexCount = mInvader->mIndexCount;
 	Invader->mMeshBox = mInvader->mMeshBox;
 	mInvaders.push_back(Invader);
-	IncBugs(0.03);
+
 }
 void Engine::SpawnMushroom()
 {
@@ -1710,9 +1787,9 @@ void Engine::SpawnProjectile()
 
 	Button* Proj = new Button(md3dDevice, 10.0f, 10.0f, true);
 	Proj->UseTexture(mProjectile->mTexSRV);
-	Proj->reverseLook = true;
+	//Proj->reverseLook = true;
 	Proj->SetPos(outSkirtX, mCam.GetPosition().y-15.0f, outSkirtZ);
-
+	Proj->SetSphereCollider(5.0f);
 	Proj->SetVertexOffset(mProjectile->GetVertOffset());
 	Proj->SetIndexOffset(mProjectile->mIndexOffset);
 	Proj->mIndexCount = mProjectile->mIndexCount;
@@ -1720,7 +1797,7 @@ void Engine::SpawnProjectile()
 	Proj->texTransMult = { 1.0f, 0.0f, 0.0f };
 	Proj->mLook = mCam.GetLook();
 	
- 	Proj->origTexScale = 2.0f;
+	Proj->origTexScale = { 2.0f, 2.0f, 2.0f };
 	Proj->mMeshBox = mProjectile->mMeshBox;
 	mProjectiles.push_back(Proj);
 }

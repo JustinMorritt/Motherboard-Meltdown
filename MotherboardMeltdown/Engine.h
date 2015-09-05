@@ -45,6 +45,7 @@ public:
 	void ResetCamInGame();
 	void IncProgress(float dt);
 	void IncBugs(float dt);
+	void DecBugs(float dt);
 
 
 	//SCENE INITS
@@ -86,6 +87,7 @@ public:
 	bool InButton2D(float sx, float sy, Button* button);
 	bool CamOnPickUp(Button* pickup);
 	bool ProjectileBounds(Button* proj);
+	bool ProjectileHitBug(Button* proj);
 
 private:
 	Sky* mSky;
@@ -139,6 +141,12 @@ private:
 	Button* mWestF;
 	Button* mEastF;
 
+	//Binary Walls
+	Button* mNorthW; 
+	Button* mSouthW; 
+	Button* mWestW;  
+	Button* mEastW;	 
+
 	//Progress Bars 
 	Button* mCompBar;
 	Button* mCompBarOL;
@@ -147,6 +155,7 @@ private:
 
 	//Spawn Timers
 	float spawnTimer; // Set this per second ..
+	float bugsWorth;
 	int spawnBugTime;
 	int spawnMushTime;
 	int speedBonusTime;
@@ -186,7 +195,6 @@ private:
 	
 	int mMoveSpeed;
 };
-
 
 
 

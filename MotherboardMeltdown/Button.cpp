@@ -1,7 +1,7 @@
 #include "Button.h"
 
 //Makes a Square by default 
-Button::Button(ID3D11Device* device, float width, float height, bool sphere, bool upRightSquare) :
+Button::Button(ID3D11Device* device, float width, float height, float depth, bool sphere, bool upRightSquare, bool box) :
 mPosition(0.0f, 0.0f, 0.0f),
 mRight(1.0f, 0.0f, 0.0f),
 mUp(0.0f, 1.0f, 0.0f),
@@ -9,7 +9,7 @@ mLook(0.0f, 0.0f, 1.0f),
 prevPitch(0.0f),
 rotationY(0.0f),
 prevRoll(0.0f),
-origTexScale(1.0f),
+origTexScale(1.0f, 1.0f, 1.0f),
 texTrans(0.0f, 0.0f, 0.0f),
 texTransMult(0.0f, 0.0f, 0.0f),
 mGoToPos(0.0f, 0.0f, 0.0f),
@@ -45,18 +45,16 @@ turnAngle(0.0f)
 	if (sphere)
 	{		
 		geoGen.CreateSphere(width, height, height, mGrid);  //height is slice count .. width for radius
-
-
 	}
 	if (upRightSquare)
 	{
-	
 		geoGen.CreateUprightSquare(width, height, mGrid); 
-
-
-
 	}
-	if (!sphere && !upRightSquare)
+	if (box)
+	{
+		geoGen.CreateBox(width, height, depth, mGrid);
+	}
+	if (!sphere && !upRightSquare && !box)
 	{
 		geoGen.CreateGrid(width, height, 2 ,2, mGrid);
 	}
@@ -180,7 +178,8 @@ void Button::Update(const Camera& camera, float dt)
 		}
 	}
 
-
+	//update sphere collider
+	mSphereCollider.Center = mPosition;
 }
 
 void Button::Draw(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* context, UINT pass, const Camera& camera, float dt)
@@ -191,10 +190,10 @@ void Button::Draw(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* conte
 	Effects::BasicFX->SetWorld(world);
 	Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 	Effects::BasicFX->SetWorldViewProj(worldViewProj);
-	if (!useTexTrans){ Effects::BasicFX->SetTexTransform(XMMatrixScaling(origTexScale, origTexScale, origTexScale)); }
+	if (!useTexTrans){ Effects::BasicFX->SetTexTransform(XMMatrixScaling(origTexScale.x, origTexScale.y, origTexScale.z)); }
 	if (useTexTrans)
 	{
-		Effects::BasicFX->SetTexTransform(XMMatrixTranslation(texTrans.x, texTrans.y, texTrans.z)*XMMatrixScaling(origTexScale, origTexScale, origTexScale));
+		Effects::BasicFX->SetTexTransform(XMMatrixTranslation(texTrans.x, texTrans.y, texTrans.z)*XMMatrixScaling(origTexScale.x, origTexScale.y, origTexScale.z));
 		texTrans.x += dt*texTransMult.x;
 		texTrans.y += dt*texTransMult.y;
 		texTrans.z += dt*texTransMult.z;
@@ -215,7 +214,7 @@ void Button::Draw2D(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* con
 	Effects::BasicFX->SetWorld(world);
 	Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 	Effects::BasicFX->SetWorldViewProj(worldViewProj);
-	Effects::BasicFX->SetTexTransform(XMMatrixScaling(origTexScale, origTexScale, origTexScale));
+	Effects::BasicFX->SetTexTransform(XMMatrixScaling(origTexScale.x, origTexScale.y, origTexScale.z));
 	Effects::BasicFX->SetMaterial(mMat);
 	Effects::BasicFX->SetDiffuseMap(mTexSRV);
 
@@ -236,7 +235,7 @@ void Button::DrawShadow(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext*
 		XMMATRIX world = XMLoadFloat4x4(&mWorld)*S*shadowScale*trans;
 		XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
 		XMMATRIX worldViewProj = world*camera.View()*camera.Proj();
-		Effects::BasicFX->SetTexTransform(XMMatrixScaling(origTexScale, origTexScale, origTexScale));
+		Effects::BasicFX->SetTexTransform(XMMatrixScaling(origTexScale.x, origTexScale.y, origTexScale.z));
 		Effects::BasicFX->SetWorld(world);
 		Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
 		Effects::BasicFX->SetWorldViewProj(worldViewProj);
@@ -299,6 +298,12 @@ void Button::LoadTexture(ID3D11Device* device , std::wstring texFilename)
 void Button::UseTexture(ID3D11ShaderResourceView* tex)
 {
 	mTexSRV = tex;
+}
+
+void Button::SetSphereCollider(float radius)
+{
+	mSphereCollider.Center = mPosition;
+	mSphereCollider.Radius = radius;
 }
 
 int Button::GetVertOffset()
