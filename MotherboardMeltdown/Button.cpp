@@ -26,7 +26,9 @@ billboard(false),
 flipUpright(false),
 reverseLook(false),
 mDead(false),
-turnAngle(0.0f)
+mExplode(false),
+turnAngle(0.0f),
+explosionDist(0.0f)
 {
 	//CREATE TEXTURE
 
@@ -184,6 +186,7 @@ void Button::Update(const Camera& camera, float dt)
 
 void Button::Draw(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* context, UINT pass, const Camera& camera, float dt)
 {
+
 	XMMATRIX world = XMLoadFloat4x4(&mWorld);
 	XMMATRIX worldInvTranspose = MathHelper::InverseTranspose(world);
 	XMMATRIX worldViewProj = world*camera.View()*camera.Proj();
@@ -201,7 +204,18 @@ void Button::Draw(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* conte
 	Effects::BasicFX->SetMaterial(mMat);
 	Effects::BasicFX->SetDiffuseMap(mTexSRV);
 
-	activeTech->GetPassByIndex(pass)->Apply(0, context);
+	if (mExplode)
+	{
+		ID3DX11EffectTechnique* ExploadTech;
+		ExploadTech = Effects::BasicFX->ExplosionTech;
+		Effects::BasicFX->SetDT(explosionDist);
+		ExploadTech->GetPassByIndex(pass)->Apply(0, context);
+	}
+	else
+	{
+		activeTech->GetPassByIndex(pass)->Apply(0, context);
+	}
+	
 	context->DrawIndexed(mIndexCount, mIndexOffset, mVertexOffset);
 }
 
@@ -304,6 +318,13 @@ void Button::SetSphereCollider(float radius)
 {
 	mSphereCollider.Center = mPosition;
 	mSphereCollider.Radius = radius;
+}
+
+void Button::ResetLookUpRight()
+{
+	mRight	= { 1.0f, 0.0f, 0.0f };
+	mUp		= { 0.0f, 1.0f, 0.0f };
+	mLook	= { 0.0f, 0.0f, 1.0f };
 }
 
 int Button::GetVertOffset()

@@ -10,7 +10,7 @@ cbuffer cbPerFrame
 {
 	DirectionalLight gDirLights[3];
 	float3 gEyePosW;
-
+	float  gDT;
 	float  gFogStart;
 	float  gFogRange;
 	float4 gFogColor;
@@ -55,6 +55,25 @@ struct VertexOut
 	float2 Tex     : TEXCOORD;
 };
 
+struct GeoOut
+{
+	float4 PosH    : SV_POSITION;
+	float3 PosW    : POSITION;
+	float3 NormalW : NORMAL;
+	float2 Tex     : TEXCOORD;
+};
+
+cbuffer cbFixed
+{
+	float2 gTexC[4] =
+	{
+		float2(0.0f, 1.0f),
+		float2(0.0f, 0.0f),
+		float2(1.0f, 1.0f),
+		float2(1.0f, 0.0f)
+	};
+};
+
 VertexOut VS(VertexIn vin)
 {
 	VertexOut vout;
@@ -71,6 +90,47 @@ VertexOut VS(VertexIn vin)
 
 	return vout;
 }
+
+
+//EXPLOSION GEOMETRY SHADER
+[maxvertexcount(3)] // amount of verticies being output
+void MyGSExplosion(triangle VertexOut gin[3], inout TriangleStream<GeoOut> triStream)
+{
+	//
+	// Compute the local coordinate system of the sprite relative to the world
+	// space such that the billboard is aligned with the y-axis and faces the eye.
+	//
+
+	float3 up = float3(0.0f, 1.0f, 0.0f);
+	float3 look = gEyePosW;
+	//look.y = 0.0f; // y-axis aligned, so project to xz-plane
+	look = normalize(look);  //Normalize it 
+	float3 right = cross(up, look);
+
+		float3 surfaceNormal = float3(0.0f, 0.0f, 0.0f);
+		float3 U = gin[1].PosW - gin[0].PosW;
+		float3 V = gin[2].PosW - gin[0].PosW;
+		surfaceNormal = cross(U, V);
+	surfaceNormal = normalize(surfaceNormal);
+
+	float4 v[3]; //3 CORNERS                    SCALER
+	v[0] = float4(gin[0].PosW + (surfaceNormal*gDT * 10), 1.0f);
+	v[1] = float4(gin[1].PosW + (surfaceNormal*gDT * 10), 1.0f);
+	v[2] = float4(gin[2].PosW + (surfaceNormal*gDT * 10), 1.0f);
+
+	//triangle strip.
+	GeoOut gout;
+	[unroll]
+	for (int i = 0; i < 3; ++i)
+	{
+		gout.PosH = mul(v[i], gWorldViewProj); // no world space
+		gout.PosW = v[i].xyz;
+		gout.NormalW = look;
+		gout.Tex = gTexC[i];
+		triStream.Append(gout);
+	}
+}
+
  
 float4 PS(VertexOut pin, 
           uniform int gLightCount, 
@@ -600,4 +660,14 @@ technique11 Light3TexAlphaClipFogReflect
 		SetGeometryShader( NULL );
         SetPixelShader( CompileShader( ps_5_0, PS(3, true, true, true, true) ) ); 
     }
+}
+
+technique11 ExpGeomShader
+{
+	pass P0
+	{
+		SetVertexShader(CompileShader(vs_5_0, VS()));
+		SetGeometryShader(CompileShader(gs_5_0, MyGSExplosion()));
+		SetPixelShader(CompileShader(ps_5_0, PS(3, true, true, false,false)));
+	}
 }

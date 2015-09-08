@@ -26,6 +26,7 @@ public:
 	void LoadTexture(ID3D11Device* device, std::wstring texFilename);
 	void UseTexture(ID3D11ShaderResourceView* tex);
 	void SetSphereCollider(float radius);
+	void ResetLookUpRight();
 
 	// Strafe/Walk
 	void Strafe(float d);
@@ -93,6 +94,7 @@ public:
 	float currProgress;
 	float mDistanceLeft;
 	float turnAngle;
+	float explosionDist;
 
 	bool hovering;
 	bool clicked;
@@ -103,6 +105,7 @@ public:
 	bool flipUpright;
 	bool reverseLook;
 	bool mDead;
+	bool mExplode;
 
 	
 

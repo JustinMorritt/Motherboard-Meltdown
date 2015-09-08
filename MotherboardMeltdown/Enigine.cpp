@@ -46,6 +46,11 @@ Engine::Engine(HINSTANCE hInstance)
 	mSouthW(0),
 	mWestW(0),
 	mEastW(0),
+	mModeButt(0),
+	mEasyButt(0),
+	mMedButt(0),
+	mHardButt(0),
+	mInsaneButt(0),
 	mMoveSpeed(500),
 	spawnTimer(0.0f),
 	bugsWorth(0.03f),
@@ -146,9 +151,10 @@ bool Engine::Init()
 // 	mFire.Init(md3dDevice, Effects::FireFX, mFlareTexSRV, mRandomTexSRV, 500); 
 // 	mFire.SetEmitPos(XMFLOAT3(0.0f, 1.0f, 120.0f));
 
-	*StateMachine::pGameState = GameState::MAINMENU;
-	*StateMachine::pSoundState = SoundState::SOUNDON;
-	*StateMachine::pMusicState = MusicState::MUSICON;
+	*StateMachine::pGameState	= GameState::MAINMENU;
+	*StateMachine::pSoundState	= SoundState::SOUNDON;
+	*StateMachine::pMusicState	= MusicState::MUSICON;
+	*StateMachine::pGameMode	= GameMode::EASY;
 
 
 
@@ -202,6 +208,11 @@ void Engine::UpdateMainMenu(float dt)
 	mBackButt->Update(mCam, dt);
 	mAboutMsgButt->Update(mCam, dt);
 	mBymeButt->Update(mCam, dt);
+	mModeButt->Update(mCam, dt);
+	mEasyButt->Update(mCam, dt);
+	mMedButt->Update(mCam, dt);
+	mHardButt->Update(mCam, dt);
+	mInsaneButt->Update(mCam, dt);
 
 	mNorthF->Update(mCam, dt);
 	mWestF->Update(mCam, dt);
@@ -296,12 +307,29 @@ void Engine::UpdatePickups(float dt)
 }
 void Engine::UpdateProjectiles(float dt)
 {
+	mProjectile->mExplode = true;
+	mProjectile->Update(mCam, dt);
+	if (mProjectile->mExplode)
+	{
+		mProjectile->explosionDist += dt;
+	}
+
 	for (int i = 0; i < mProjectiles.size(); i++)
 	{
-		if (!ProjectileBounds(mProjectiles[i])){ mProjectiles[i]->mDead = true;}
-		if (ProjectileHitBug(mProjectiles[i])){/*MAKE PROJECTILE EXPLODE*/}
-		mProjectiles[i]->Walk(dt*1000);
-		mProjectiles[i]->Update(mCam, dt);
+		if (mProjectiles[i]->mExplode)
+		{
+			mProjectiles[i]->explosionDist += dt;
+		}
+		else
+		{
+			mProjectiles[i]->Walk(dt * 1000);
+			if (!ProjectileBounds(mProjectiles[i])){	mProjectiles[i]->mDead = true; }
+			if (ProjectileHitBug(mProjectiles[i])){ mProjectiles[i]->mExplode = true; }
+
+			mProjectiles[i]->Update(mCam, dt);
+		}
+		
+		
 	
 		if (mProjectiles[i]->mDead)
 		{
@@ -460,6 +488,11 @@ void Engine::InitMainMenu()
 	mSOnButt		= new Button(md3dDevice, 40.0f, 20.0f);
 	mSOffButt		= new Button(md3dDevice, 40.0f, 20.0f);
 	mMOnButt		= new Button(md3dDevice, 40.0f, 20.0f);
+	mModeButt		= new Button(md3dDevice, 40.0f, 20.0f);
+	mEasyButt		= new Button(md3dDevice, 40.0f, 20.0f);
+	mMedButt		= new Button(md3dDevice, 40.0f, 20.0f);
+	mHardButt		= new Button(md3dDevice, 40.0f, 20.0f);
+	mInsaneButt		= new Button(md3dDevice, 40.0f, 20.0f);
 	mMOffButt		= new Button(md3dDevice, 40.0f, 20.0f);
 	mTitleButt		= new Button(md3dDevice, 200.0f, 50.0f);
 	mAboutButt		= new Button(md3dDevice, 80.0f, 40.0f);
@@ -495,6 +528,11 @@ void Engine::InitMainMenu()
 	mYouWinButt->LoadTexture(		md3dDevice, L"Textures/youwin.dds");
 	mYouLoseButt->LoadTexture(		md3dDevice, L"Textures/youlose.dds");
 	mRetryButt->LoadTexture(		md3dDevice, L"Textures/retry.dds");
+	mModeButt->LoadTexture(			md3dDevice, L"Textures/mode.dds");
+	mEasyButt->LoadTexture(			md3dDevice, L"Textures/easy.dds");
+	mMedButt->LoadTexture(			md3dDevice, L"Textures/med.dds");
+	mHardButt->LoadTexture(			md3dDevice, L"Textures/hard.dds");
+	mInsaneButt->LoadTexture(		md3dDevice, L"Textures/insane.dds");
 
 
 	mInvader = new Button(md3dDevice, 50.0f, 50.0f, 0.0f, false, true);
@@ -545,6 +583,7 @@ void Engine::InitMainMenu()
 	mProjectile = new Button(md3dDevice, 10.0f, 10.0f, 0.0f, true);
 	mProjectile->LoadTexture(md3dDevice, L"Textures/diamondPlate.dds");
 	mProjectile->SetSphereCollider(5.0f);
+	mProjectile->SetPos(0.0f, 50.0f, 400.0f);
 
 	//3D UI STUFF
 	mPlayButt->SetPos(0.0f, 50.0f, -200.0f);
@@ -567,6 +606,18 @@ void Engine::InitMainMenu()
 
 	mMOffButt->SetPos(-85.0f, 50.0f, -150.0f);
 	mMOffButt->Pitch(XM_PI / 4.5);
+
+	mModeButt->SetPos(-20.0f, 50.0f,		-280.0f);
+	mModeButt->Pitch(XM_PI / 4.5);
+	mEasyButt->SetPos(20.0f, 50.0f, -280.0f);
+	mEasyButt->Pitch(XM_PI / 4.5);
+	mMedButt->SetPos(20.0f, 50.0f, -280.0f);
+	mMedButt->Pitch(XM_PI / 4.5);
+	mHardButt->SetPos(20.0f, 50.0f, -280.0f);
+	mHardButt->Pitch(XM_PI / 4.5);
+	mInsaneButt->SetPos(20.0f, 50.0f, -280.0f);
+	mInsaneButt->Pitch(XM_PI / 4.5);
+
 
 	mTitleButt->SetPos(0.0f, 110.0f, -200.0f);
 	mTitleButt->Pitch(XM_PI / 4.5);
@@ -712,6 +763,12 @@ void Engine::InitMainMenu()
 	mSouthW->SetVertexOffset(mNorthW->GetVertOffset()			+ mNorthW->mGrid.Vertices.size());
 	mWestW ->SetVertexOffset(mSouthW->GetVertOffset()			+ mSouthW->mGrid.Vertices.size());
 	mEastW ->SetVertexOffset(mWestW->GetVertOffset()			+ mWestW->mGrid.Vertices.size());
+	mModeButt->SetVertexOffset(mEastW->GetVertOffset()			+ mEastW->mGrid.Vertices.size());
+	mEasyButt->SetVertexOffset(mModeButt->GetVertOffset()		+ mModeButt->mGrid.Vertices.size());
+	mMedButt->SetVertexOffset(mEasyButt->GetVertOffset()		+ mEasyButt->mGrid.Vertices.size());
+	mHardButt->SetVertexOffset(mMedButt->GetVertOffset()		+ mMedButt->mGrid.Vertices.size());
+	mInsaneButt->SetVertexOffset(mHardButt->GetVertOffset()		+ mHardButt->mGrid.Vertices.size());
+
 
 	// Cache the index count of each object.
 	mGridIndexCount = grid.Indices.size();
@@ -752,6 +809,11 @@ void Engine::InitMainMenu()
 	mSouthW->SetIndexOffset(		mNorthW->GetIndOffset()			+ mNorthW->mGrid.Indices.size());
 	mWestW->SetIndexOffset(			mSouthW->GetIndOffset()			+ mSouthW->mGrid.Indices.size());
 	mEastW->SetIndexOffset(			mWestW->GetIndOffset()			+ mWestW->mGrid.Indices.size());
+	mModeButt->SetIndexOffset(		mEastW->GetIndOffset()			+ mEastW->mGrid.Indices.size());
+	mEasyButt->SetIndexOffset(		mModeButt->GetIndOffset()		+ mModeButt->mGrid.Indices.size());
+	mMedButt->SetIndexOffset(		mEasyButt->GetIndOffset()		+ mEasyButt->mGrid.Indices.size());
+	mHardButt->SetIndexOffset(		mMedButt->GetIndOffset()		+ mMedButt->mGrid.Indices.size());
+	mInsaneButt->SetIndexOffset(	mHardButt->GetIndOffset()		+ mHardButt->mGrid.Indices.size());
 
 	UINT totalVertexCount = grid.Vertices.size()
 		+ mPlayButt->mGrid.Vertices.size()
@@ -788,7 +850,12 @@ void Engine::InitMainMenu()
 		+ mNorthW->mGrid.Vertices.size()
 		+ mSouthW->mGrid.Vertices.size()
 		+ mWestW->mGrid.Vertices.size()
-		+ mEastW->mGrid.Vertices.size();
+		+ mEastW->mGrid.Vertices.size()
+		+ mModeButt->mGrid.Vertices.size()
+		+ mEasyButt->mGrid.Vertices.size()
+		+ mMedButt->mGrid.Vertices.size()
+		+ mHardButt->mGrid.Vertices.size()
+		+ mInsaneButt->mGrid.Vertices.size();
 
 	UINT totalIndexCount = mGridIndexCount
 		+ mPlayButt->mIndexCount
@@ -825,7 +892,12 @@ void Engine::InitMainMenu()
 		+ mNorthW->mIndexCount
 		+ mSouthW->mIndexCount
 		+ mWestW->mIndexCount
-		+ mEastW->mIndexCount;
+		+ mEastW->mIndexCount
+		+ mModeButt->mIndexCount
+		+ mEasyButt->mIndexCount
+		+ mMedButt->mIndexCount
+		+ mHardButt->mIndexCount
+		+ mInsaneButt->mIndexCount;
 
 
 	//
@@ -877,6 +949,11 @@ void Engine::InitMainMenu()
 	mSouthW->LoadVertData(		vertices, k);
 	mWestW->LoadVertData(		vertices, k);
 	mEastW->LoadVertData(		vertices, k);
+	mModeButt->LoadVertData(	vertices, k);
+	mEasyButt->LoadVertData(	vertices, k);
+	mMedButt->LoadVertData(		vertices, k);
+	mHardButt->LoadVertData(	vertices, k);
+	mInsaneButt->LoadVertData(	vertices, k);
 
 	//****************************************************************************
 
@@ -932,6 +1009,11 @@ void Engine::InitMainMenu()
 	indices.insert(indices.end(), mSouthW->mGrid.Indices.begin(),		mSouthW->mGrid.Indices.end());
 	indices.insert(indices.end(), mWestW->mGrid.Indices.begin(),		mWestW->mGrid.Indices.end());
 	indices.insert(indices.end(), mEastW->mGrid.Indices.begin(),		mEastW->mGrid.Indices.end());
+	indices.insert(indices.end(), mModeButt->mGrid.Indices.begin(),		mModeButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mEasyButt->mGrid.Indices.begin(),		mEasyButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mMedButt->mGrid.Indices.begin(),		mMedButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mHardButt->mGrid.Indices.begin(),		mHardButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mInsaneButt->mGrid.Indices.begin(),	mInsaneButt->mGrid.Indices.end());
 
 
 	//CREATE INDEX BUFFER
@@ -1017,10 +1099,24 @@ void Engine::DrawMainMenu()
 		mTitleButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 		mAboutButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 
+		mModeButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		switch (*StateMachine::pGameMode)
+		{
+		case GameMode::EASY:mEasyButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); break;
+		case GameMode::MED:mMedButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); break;
+		case GameMode::HARD:mHardButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); break;
+		case GameMode::INSANE:mInsaneButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); break;
+		}
+
+		
+		
+		
+		
+
 		if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSOnButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); }
-		if (*StateMachine::pSoundState == SoundState::SOUNDOFF){ mSOffButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); }
+		else{ mSOffButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); }
 		if (*StateMachine::pMusicState == MusicState::MUSICON){ mMOnButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); }
-		if (*StateMachine::pMusicState == MusicState::MUSICOFF){ mMOffButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); }
+		else { mMOffButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); }
 
 
 		mNorthF->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
@@ -1031,39 +1127,39 @@ void Engine::DrawMainMenu()
 	}
 
 	// Transform NDC space [-1,+1]^2 to texture space [0,1]^2
-	XMMATRIX toTexSpace(
-		0.5f, 0.0f, 0.0f, 0.0f,
-		0.0f, -0.5f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.5f, 0.5f, 0.0f, 1.0f);
-	stride = sizeof(Vertex::PosNormalTexTan);
-	ID3DX11EffectTechnique* tech = Effects::BasicFX->Light3TexTech;
-	tech->GetDesc(&techDesc);
-	for (UINT p = 0; p < techDesc.Passes; ++p)
-	{
-		for (UINT modelIndex = 0; modelIndex < mModelInstances.size(); ++modelIndex)
-		{
-			world = XMLoadFloat4x4(&mModelInstances[modelIndex].World);
-			worldInvTranspose = MathHelper::InverseTranspose(world);
-			worldViewProj = world*view*proj;
-
-			Effects::BasicFX->SetWorld(world);
-			Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
-			Effects::BasicFX->SetWorldViewProj(worldViewProj);
-			Effects::BasicFX->SetWorldViewProjTex(worldViewProj*toTexSpace);
-			Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
-
-			for (UINT subset = 0; subset < mModelInstances[modelIndex].Model->SubsetCount; ++subset)
-			{
-				Effects::BasicFX->SetMaterial(mModelInstances[modelIndex].Model->Mat[subset]);
-				Effects::BasicFX->SetDiffuseMap(mModelInstances[modelIndex].Model->DiffuseMapSRV[subset]);
-				//Effects::BasicFX->SetNormalMap(mModelInstances[modelIndex].Model->NormalMapSRV[subset]);
-
-				tech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
-				mModelInstances[modelIndex].Model->ModelMesh.Draw(md3dImmediateContext, subset);
-			}
-		}
-	}
+// 	XMMATRIX toTexSpace(
+// 		0.5f, 0.0f, 0.0f, 0.0f,
+// 		0.0f, -0.5f, 0.0f, 0.0f,
+// 		0.0f, 0.0f, 1.0f, 0.0f,
+// 		0.5f, 0.5f, 0.0f, 1.0f);
+// 	stride = sizeof(Vertex::PosNormalTexTan);
+// 	ID3DX11EffectTechnique* tech = Effects::BasicFX->Light3TexTech;
+// 	tech->GetDesc(&techDesc);
+// 	for (UINT p = 0; p < techDesc.Passes; ++p)
+// 	{
+// 		for (UINT modelIndex = 0; modelIndex < mModelInstances.size(); ++modelIndex)
+// 		{
+// 			world = XMLoadFloat4x4(&mModelInstances[modelIndex].World);
+// 			worldInvTranspose = MathHelper::InverseTranspose(world);
+// 			worldViewProj = world*view*proj;
+// 
+// 			Effects::BasicFX->SetWorld(world);
+// 			Effects::BasicFX->SetWorldInvTranspose(worldInvTranspose);
+// 			Effects::BasicFX->SetWorldViewProj(worldViewProj);
+// 			Effects::BasicFX->SetWorldViewProjTex(worldViewProj*toTexSpace);
+// 			Effects::BasicFX->SetTexTransform(XMMatrixScaling(1.0f, 1.0f, 1.0f));
+// 
+// 			for (UINT subset = 0; subset < mModelInstances[modelIndex].Model->SubsetCount; ++subset)
+// 			{
+// 				Effects::BasicFX->SetMaterial(mModelInstances[modelIndex].Model->Mat[subset]);
+// 				Effects::BasicFX->SetDiffuseMap(mModelInstances[modelIndex].Model->DiffuseMapSRV[subset]);
+// 				//Effects::BasicFX->SetNormalMap(mModelInstances[modelIndex].Model->NormalMapSRV[subset]);
+// 
+// 				tech->GetPassByIndex(p)->Apply(0, md3dImmediateContext);
+// 				mModelInstances[modelIndex].Model->ModelMesh.Draw(md3dImmediateContext, subset);
+// 			}
+// 		}
+// 	}
 	RestoreStates();
 
 	//SHADOWS *******************************************************************************************************
@@ -1090,7 +1186,8 @@ void Engine::DrawMainMenu()
 	mMOffButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
 	mTitleButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet + 100.0f, mCam, mShadowMat);
 	mAboutButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
-
+	mModeButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale/2, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
+	mEasyButt->DrawShadow(activeTexTech, md3dImmediateContext, shadowPlane, toMainLight, S, sScale/2, xOffSet, yOffSet, zOffSet, mCam, mShadowMat);
 	// Restore default states.
 	RestoreStates();
 
@@ -1217,8 +1314,7 @@ void Engine::DrawGameOn()
 	Effects::BasicFX->SetDirLights(mDirLights);
 	Effects::BasicFX->SetEyePosW(mCam.GetPosition());
 
-	// Figure out which technique to use.  Skull does not have texture coordinates,
-	// so we need a separate technique for it.
+
 	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light1TexAlphaClipTech;
 	D3DX11_TECHNIQUE_DESC techDesc;
 	activeTexTech->GetDesc(&techDesc);
@@ -1267,7 +1363,7 @@ void Engine::DrawGameOn()
 		{
 			mProjectiles[i]->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 		}
-
+		mProjectile->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 		//DRAW BUTTS
 		activeTexTech = Effects::BasicFX->Light2TexAlphaClipTech;
 		md3dImmediateContext->OMSetDepthStencilState(RenderStates::ZBufferDisabled, 0); // changing 0 means overlaping draws
@@ -1541,6 +1637,22 @@ void Engine::BtnsMainMenu(float x, float y, bool clicked)
 	}
 	else{ mMusicButt->hovering = false; }
 
+	if (InButton3D(x, y, mModeButt))
+	{
+		mModeButt->hovering = true;
+		if (clicked)
+		{
+			switch (*StateMachine::pGameMode)
+			{
+			case GameMode::EASY: *StateMachine::pGameMode	= GameMode::MED;	break;
+			case GameMode::MED:*StateMachine::pGameMode		= GameMode::HARD;	break;
+			case GameMode::HARD:*StateMachine::pGameMode	= GameMode::INSANE; break;
+			case GameMode::INSANE:*StateMachine::pGameMode	= GameMode::EASY;	break;
+			}
+		}
+	}
+	else{ mModeButt->hovering = false; }
+
 }
 void Engine::BtnsAbout(float x, float y, bool clicked)
 {
@@ -1779,25 +1891,28 @@ void Engine::SpawnMushroom()
 }
 void Engine::SpawnProjectile()
 {
-	float outSkirtZ;
-	float outSkirtX;
-
+	float outSkirtZ, outSkirtX, outSkirtY;
+	
 	outSkirtX = mCam.GetPosition().x;
 	outSkirtZ = mCam.GetPosition().z;
+	outSkirtY = mCam.GetPosition().y;
 
 	Button* Proj = new Button(md3dDevice, 10.0f, 10.0f, true);
 	Proj->UseTexture(mProjectile->mTexSRV);
-	//Proj->reverseLook = true;
-	Proj->SetPos(outSkirtX, mCam.GetPosition().y-15.0f, outSkirtZ);
+
+	Proj->SetPos(outSkirtX, outSkirtY - 15.0f, outSkirtZ);
 	Proj->SetSphereCollider(5.0f);
 	Proj->SetVertexOffset(mProjectile->GetVertOffset());
 	Proj->SetIndexOffset(mProjectile->mIndexOffset);
 	Proj->mIndexCount = mProjectile->mIndexCount;
- 	Proj->useTexTrans = true;
+ 	
+	Proj->useTexTrans = true;
 	Proj->texTransMult = { 1.0f, 0.0f, 0.0f };
+	Proj->origTexScale = { 2.0f, 2.0f, 2.0f };
+
 	Proj->mLook = mCam.GetLook();
 	
-	Proj->origTexScale = { 2.0f, 2.0f, 2.0f };
+
 	Proj->mMeshBox = mProjectile->mMeshBox;
 	mProjectiles.push_back(Proj);
 }

@@ -118,6 +118,11 @@ private:
 	Button* mYouWinButt;
 	Button* mYouLoseButt;
 	Button* mRetryButt;
+	Button* mModeButt;
+	Button* mEasyButt;
+	Button* mMedButt;
+	Button* mHardButt;
+	Button* mInsaneButt;
 	Button* mInvader;
 
 	Button* mInvader2;

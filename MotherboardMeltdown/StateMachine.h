@@ -11,6 +11,14 @@ enum class GameState
 	GAMEON
 };
 
+enum class GameMode
+{
+	EASY,
+	MED,
+	HARD,
+	INSANE
+};
+
 enum class SoundState
 {
 	SOUNDON,
@@ -30,6 +38,7 @@ struct StateMachine
 	static GameState*	pGameState;
 	static SoundState*	pSoundState;
 	static MusicState*	pMusicState;
+	static GameMode*	pGameMode;
 };
 
 

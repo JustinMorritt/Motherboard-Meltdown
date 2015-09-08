@@ -88,6 +88,8 @@ BasicEffect::BasicEffect(ID3D11Device* device, const std::wstring& filename)
 	Light2TexAlphaClipFogReflectTech = mFX->GetTechniqueByName("Light2TexAlphaClipFogReflect");
 	Light3TexAlphaClipFogReflectTech = mFX->GetTechniqueByName("Light3TexAlphaClipFogReflect");
 
+	ExplosionTech = mFX->GetTechniqueByName("ExpGeomShader");
+
 	WorldViewProj     = mFX->GetVariableByName("gWorldViewProj")->AsMatrix();
 	World             = mFX->GetVariableByName("gWorld")->AsMatrix();
 	WorldInvTranspose = mFX->GetVariableByName("gWorldInvTranspose")->AsMatrix();
@@ -101,6 +103,7 @@ BasicEffect::BasicEffect(ID3D11Device* device, const std::wstring& filename)
 	DiffuseMap        = mFX->GetVariableByName("gDiffuseMap")->AsShaderResource();
 	CubeMap           = mFX->GetVariableByName("gCubeMap")->AsShaderResource();
 	WorldViewProjTex  = mFX->GetVariableByName("gWorldViewProjTex")->AsMatrix();
+	Dt				  = mFX->GetVariableByName("gDT")->AsScalar();
 }
 
 BasicEffect::~BasicEffect()
