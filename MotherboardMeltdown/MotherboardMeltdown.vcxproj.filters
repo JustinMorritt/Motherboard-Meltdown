@@ -90,6 +90,9 @@
     <ClCompile Include="MeshGeometry.cpp">
       <Filter>CPP</Filter>
     </ClCompile>
+    <ClCompile Include="Sound.cpp">
+      <Filter>CPP</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Effects.h">
@@ -162,6 +165,9 @@
       <Filter>HEADER</Filter>
     </ClInclude>
     <ClInclude Include="MeshGeometry.h">
+      <Filter>HEADER</Filter>
+    </ClInclude>
+    <ClInclude Include="Sound.h">
       <Filter>HEADER</Filter>
     </ClInclude>
   </ItemGroup>

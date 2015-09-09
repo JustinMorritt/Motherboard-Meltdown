@@ -19,6 +19,7 @@
 #include "MathHelper.h"
 #include "TextureMgr.h"
 #include "BasicModel.h"
+#include "Sound.h"
 #include <vector>
 
 
@@ -46,7 +47,7 @@ public:
 	void IncProgress(float dt);
 	void IncBugs(float dt);
 	void DecBugs(float dt);
-
+	void ClearVectors();
 
 	//SCENE INITS
 	void InitMainMenu();
@@ -74,6 +75,7 @@ public:
 	void SpawnBug();
 	void SpawnMushroom();
 	void SpawnProjectile();
+	void SpawnGhost();
 
 
 	//BUTTON HANDLERS
@@ -131,9 +133,17 @@ private:
 	Button* mMushroom;
 	Button* mProjectile;
 
+	Button* mBoss;
+	Button* mGhost1;
+	Button* mGhost2;
+	Button* mGhost3;
+	Button* mGhost4;
+	Button* mGhost5;
+
 	std::vector<Button*> mInvaders;
 	std::vector<Button*> mMushrooms;
 	std::vector<Button*> mProjectiles;
+	std::vector<Button*> mGhosts;
 
 	//Models
 	std::vector<BasicModelInstance> mModelInstances;
@@ -161,9 +171,11 @@ private:
 	//Spawn Timers
 	float spawnTimer; // Set this per second ..
 	float bugsWorth;
+	float difficultyTimer;
 	int spawnBugTime;
 	int spawnMushTime;
 	int speedBonusTime;
+
 
 	ID3D11ShaderResourceView* mFlareTexSRV;
 	ID3D11ShaderResourceView* mRainTexSRV;
@@ -175,7 +187,7 @@ private:
 	DirectionalLight mDirLights[3];
 
 	Camera mCam;
-
+	Sound mSound;
 
 	//MAIN MENU STUFF
 	ID3D11ShaderResourceView* mFloorTexSRV;
@@ -200,6 +212,7 @@ private:
 	
 	int mMoveSpeed;
 };
+
 
 
 

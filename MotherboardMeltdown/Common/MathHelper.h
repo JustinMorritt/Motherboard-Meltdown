@@ -70,13 +70,7 @@ public:
 	static const float Infinity;
 	static const float Pi;
 
-	template <typename T>
-	static std::string to_string(const T& value)
-	{
-		std::ostringstream s;
-		s << value;
-		return s.str();
-	}
+
 };
 
 #endif // MATHHELPER_H

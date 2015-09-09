@@ -51,9 +51,16 @@ Engine::Engine(HINSTANCE hInstance)
 	mMedButt(0),
 	mHardButt(0),
 	mInsaneButt(0),
+	mBoss(0),
+	mGhost1(0),
+	mGhost2(0),
+	mGhost3(0),
+	mGhost4(0),
+	mGhost5(0),
 	mMoveSpeed(500),
 	spawnTimer(0.0f),
 	bugsWorth(0.03f),
+	difficultyTimer(1.0f),
 	fullyLoaded(false)
 {
 	mMainWndCaption = L"Motherboard Meltdown";
@@ -108,7 +115,7 @@ Engine::~Engine()
 bool Engine::Init()
 {
 	if(!D3DApp::Init())	return false;
-
+	mSound.Initialize(mhMainWnd);
 	// Must init Effects first since InputLayouts depend on shader signatures.
 	Effects::InitAll(md3dDevice);
 	mTexMgr.Init(md3dDevice);
@@ -178,20 +185,16 @@ void Engine::UpdateScene(float dt)
 	{
 	case GameState::ABOUT:		
 	case GameState::MAINMENU:	UpdateMainMenu(dt); break;
-	case GameState::GAMEON:		
+	case GameState::GAMEON:
+	case GameState::BOSSFIGHT:
 	case GameState::PAUSED:
 	case GameState::WIN:
-	case GameState::LOSE:		UpdateGame(dt);		break;
+	case GameState::LOSE:		UpdateGame(dt);	break;
 	}
-
-	//mButton1->RotateY(mButton1->rotation);
-
 
 	//UPDATE PARTICLE SYSTEMS
 	mFire.Update(dt, mTimer.TotalTime());
 	mRain.Update(dt, mTimer.TotalTime());
-
-	
 }
 
 void Engine::UpdateMainMenu(float dt)
@@ -240,18 +243,29 @@ void Engine::UpdateGame(float dt)
 	mYouWinButt->Update(mCam, dt);
 	mYouLoseButt->Update(mCam, dt);
 	mRetryButt->Update(mCam, dt);
+	if (*StateMachine::pGameState == GameState::BOSSFIGHT)
+	{
 
+	}
 	
 	//TIMER STUFF / SPAWN RATES   *Spawn Before Update Or Youll Get a Flicker Later On Of it Not Translated Yet*
 	spawnTimer += dt;
-	if (spawnTimer >= 1.0)
+	if (spawnTimer >= difficultyTimer)
 	{
-		spawnBugTime++;
-		if (spawnBugTime == 1){ SpawnBug(); IncBugs(bugsWorth); spawnBugTime = 0; }
+		if (*StateMachine::pGameState != GameState::BOSSFIGHT)
+		{
+			spawnBugTime++;
+			if (spawnBugTime == 1){ SpawnBug(); IncBugs(bugsWorth); spawnBugTime = 0; }
 
-		spawnMushTime++;
-		if (spawnMushTime == 10){ SpawnMushroom();		spawnMushTime = 0; }
-		
+			spawnMushTime++;
+			if (spawnMushTime == 20){ SpawnMushroom();		spawnMushTime = 0; }
+		}
+		else
+		{
+			spawnBugTime++;
+			if (spawnBugTime == 1){ SpawnGhost(); spawnBugTime = 0; }
+		}
+	
 		if (speedBonusTime > 0){ speedBonusTime--;	mMoveSpeed = 1000;	if (speedBonusTime == 0){ mMoveSpeed = 500; } }
 
 		spawnTimer = 0.0f;
@@ -307,25 +321,17 @@ void Engine::UpdatePickups(float dt)
 }
 void Engine::UpdateProjectiles(float dt)
 {
-	mProjectile->mExplode = true;
-	mProjectile->Update(mCam, dt);
-	if (mProjectile->mExplode)
-	{
-		mProjectile->explosionDist += dt;
-	}
-
 	for (int i = 0; i < mProjectiles.size(); i++)
 	{
 		if (mProjectiles[i]->mExplode)
 		{
-			mProjectiles[i]->explosionDist += dt;
+			mProjectiles[i]->explosionDist += dt * 80; if (mProjectiles[i]->explosionDist > 200.0f){ mProjectiles[i]->mDead = true; }
 		}
 		else
 		{
 			mProjectiles[i]->Walk(dt * 1000);
-			if (!ProjectileBounds(mProjectiles[i])){	mProjectiles[i]->mDead = true; }
-			if (ProjectileHitBug(mProjectiles[i])){ mProjectiles[i]->mExplode = true; }
-
+			if (!ProjectileBounds(mProjectiles[i])){	mProjectiles[i]->mDead		= true; }
+			if (ProjectileHitBug(mProjectiles[i])){		mProjectiles[i]->mExplode	= true; }
 			mProjectiles[i]->Update(mCam, dt);
 		}
 		
@@ -348,7 +354,6 @@ void Engine::DrawScene()
 
 	md3dImmediateContext->IASetInputLayout(InputLayouts::Basic32);
     md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
- 
 	
 
 	if( mWireMode )	md3dImmediateContext->RSSetState(RenderStates::WireframeRS);
@@ -361,6 +366,7 @@ void Engine::DrawScene()
 	case GameState::PAUSED:		DrawPaused();	break;
 	case GameState::WIN:		DrawWin();		break;
 	case GameState::LOSE:		DrawLose();		break;
+	case GameState::BOSSFIGHT:		
 	case GameState::GAMEON:		DrawGameOn();	break;
 	}
 
@@ -453,7 +459,7 @@ bool Engine::CamOnPickUp(Button* pickup)
 }
 bool Engine::ProjectileBounds(Button* proj)
 {
-	float x, y, z, maxBound = 2000.0f;
+	float x, y, z, maxBound = 4000.0f;
 
 	x = abs(proj->mPosition.x);
 	y = abs(proj->mPosition.y);
@@ -473,7 +479,26 @@ bool Engine::ProjectileHitBug(Button* proj)
 	}
 	return hit;
 }
+void Engine::ClearVectors()
+{
+	for (int i = 0; i < mInvaders.size(); i++)
+	{
+		delete mInvaders[i];
+		mInvaders[i] = nullptr;
+	}mInvaders.clear();
 
+	for (int i = 0; i < mMushrooms.size(); i++)
+	{
+		delete mMushrooms[i];
+		mMushrooms[i] = nullptr;
+	}mMushrooms.clear();
+
+	for (int i = 0; i < mProjectiles.size(); i++)
+	{
+		delete mProjectiles[i];
+		mProjectiles[i] = nullptr;
+	}mProjectiles.clear();
+}
 
 //GAME INITS
 void Engine::InitMainMenu()
@@ -508,6 +533,13 @@ void Engine::InitMainMenu()
 	mYouLoseButt	= new Button(md3dDevice, 750.0f, 350.0f);
 	mRetryButt		= new Button(md3dDevice, 350.0f, 200.0f);
 
+	mBoss	= new Button(md3dDevice, 800.0f, 50.0f, 0.0f, true);
+	mGhost1 = new Button(md3dDevice, 50.0f, 50.0f);
+	mGhost2 = new Button(md3dDevice, 50.0f, 50.0f);
+	mGhost3 = new Button(md3dDevice, 50.0f, 50.0f);
+	mGhost4 = new Button(md3dDevice, 50.0f, 50.0f);
+	mGhost5 = new Button(md3dDevice, 50.0f, 50.0f);
+
 	mPlayButt->LoadTexture(			md3dDevice, L"Textures/play.dds");
 	mSoundButt->LoadTexture(		md3dDevice, L"Textures/sound.dds");
 	mMusicButt->LoadTexture(		md3dDevice, L"Textures/music.dds");
@@ -533,6 +565,12 @@ void Engine::InitMainMenu()
 	mMedButt->LoadTexture(			md3dDevice, L"Textures/med.dds");
 	mHardButt->LoadTexture(			md3dDevice, L"Textures/hard.dds");
 	mInsaneButt->LoadTexture(		md3dDevice, L"Textures/insane.dds");
+	mBoss->LoadTexture(md3dDevice, L"Textures/boss.dds");
+	mGhost1->LoadTexture(md3dDevice, L"Textures/ghost1.dds");
+	mGhost2->LoadTexture(md3dDevice, L"Textures/ghost2.dds");
+	mGhost3->LoadTexture(md3dDevice, L"Textures/ghost3.dds");
+	mGhost4->LoadTexture(md3dDevice, L"Textures/ghost4.dds");
+	mGhost5->LoadTexture(md3dDevice, L"Textures/ghost5.dds");
 
 
 	mInvader = new Button(md3dDevice, 50.0f, 50.0f, 0.0f, false, true);
@@ -583,7 +621,7 @@ void Engine::InitMainMenu()
 	mProjectile = new Button(md3dDevice, 10.0f, 10.0f, 0.0f, true);
 	mProjectile->LoadTexture(md3dDevice, L"Textures/diamondPlate.dds");
 	mProjectile->SetSphereCollider(5.0f);
-	mProjectile->SetPos(0.0f, 50.0f, 400.0f);
+	mProjectile->SetPos(0.0f, 50.0f, 800.0f);
 
 	//3D UI STUFF
 	mPlayButt->SetPos(0.0f, 50.0f, -200.0f);
@@ -607,7 +645,7 @@ void Engine::InitMainMenu()
 	mMOffButt->SetPos(-85.0f, 50.0f, -150.0f);
 	mMOffButt->Pitch(XM_PI / 4.5);
 
-	mModeButt->SetPos(-20.0f, 50.0f,		-280.0f);
+	mModeButt->SetPos(-20.0f, 50.0f,  -280.0f);
 	mModeButt->Pitch(XM_PI / 4.5);
 	mEasyButt->SetPos(20.0f, 50.0f, -280.0f);
 	mEasyButt->Pitch(XM_PI / 4.5);
@@ -768,7 +806,12 @@ void Engine::InitMainMenu()
 	mMedButt->SetVertexOffset(mEasyButt->GetVertOffset()		+ mEasyButt->mGrid.Vertices.size());
 	mHardButt->SetVertexOffset(mMedButt->GetVertOffset()		+ mMedButt->mGrid.Vertices.size());
 	mInsaneButt->SetVertexOffset(mHardButt->GetVertOffset()		+ mHardButt->mGrid.Vertices.size());
-
+	mBoss->SetVertexOffset(mInsaneButt->GetVertOffset() + mInsaneButt->mGrid.Vertices.size());
+	mGhost1->SetVertexOffset(mBoss->GetVertOffset() + mBoss->mGrid.Vertices.size());
+	mGhost2->SetVertexOffset(mGhost1->GetVertOffset() + mGhost1->mGrid.Vertices.size());
+	mGhost3->SetVertexOffset(mGhost2->GetVertOffset() + mGhost2->mGrid.Vertices.size());
+	mGhost4->SetVertexOffset(mGhost3->GetVertOffset() + mGhost3->mGrid.Vertices.size());
+	mGhost5->SetVertexOffset(mGhost4->GetVertOffset() + mGhost4->mGrid.Vertices.size());
 
 	// Cache the index count of each object.
 	mGridIndexCount = grid.Indices.size();
@@ -814,6 +857,13 @@ void Engine::InitMainMenu()
 	mMedButt->SetIndexOffset(		mEasyButt->GetIndOffset()		+ mEasyButt->mGrid.Indices.size());
 	mHardButt->SetIndexOffset(		mMedButt->GetIndOffset()		+ mMedButt->mGrid.Indices.size());
 	mInsaneButt->SetIndexOffset(	mHardButt->GetIndOffset()		+ mHardButt->mGrid.Indices.size());
+	mBoss->SetIndexOffset(			mInsaneButt->GetIndOffset()		+ mInsaneButt->mGrid.Indices.size());
+	mGhost1->SetIndexOffset(		mBoss->GetIndOffset()			+ mBoss->mGrid.Indices.size());
+	mGhost2->SetIndexOffset(		mGhost1->GetIndOffset()			+ mGhost1->mGrid.Indices.size());
+	mGhost3->SetIndexOffset(		mGhost2->GetIndOffset()			+ mGhost2->mGrid.Indices.size());
+	mGhost4->SetIndexOffset(		mGhost3->GetIndOffset()			+ mGhost3->mGrid.Indices.size());
+	mGhost5->SetIndexOffset(		mGhost4->GetIndOffset()			+ mGhost4->mGrid.Indices.size());
+
 
 	UINT totalVertexCount = grid.Vertices.size()
 		+ mPlayButt->mGrid.Vertices.size()
@@ -855,7 +905,13 @@ void Engine::InitMainMenu()
 		+ mEasyButt->mGrid.Vertices.size()
 		+ mMedButt->mGrid.Vertices.size()
 		+ mHardButt->mGrid.Vertices.size()
-		+ mInsaneButt->mGrid.Vertices.size();
+		+ mInsaneButt->mGrid.Vertices.size()
+		+ mBoss->mGrid.Vertices.size()
+		+ mGhost1->mGrid.Vertices.size()
+		+ mGhost2->mGrid.Vertices.size()
+		+ mGhost3->mGrid.Vertices.size()
+		+ mGhost4->mGrid.Vertices.size()
+		+ mGhost5->mGrid.Vertices.size();
 
 	UINT totalIndexCount = mGridIndexCount
 		+ mPlayButt->mIndexCount
@@ -897,7 +953,13 @@ void Engine::InitMainMenu()
 		+ mEasyButt->mIndexCount
 		+ mMedButt->mIndexCount
 		+ mHardButt->mIndexCount
-		+ mInsaneButt->mIndexCount;
+		+ mInsaneButt->mIndexCount
+		+ mBoss->mIndexCount
+		+ mGhost1->mIndexCount
+		+ mGhost2->mIndexCount
+		+ mGhost3->mIndexCount
+		+ mGhost4->mIndexCount
+		+ mGhost5->mIndexCount;
 
 
 	//
@@ -954,6 +1016,12 @@ void Engine::InitMainMenu()
 	mMedButt->LoadVertData(		vertices, k);
 	mHardButt->LoadVertData(	vertices, k);
 	mInsaneButt->LoadVertData(	vertices, k);
+	mBoss->LoadVertData(		vertices, k);
+	mGhost1->LoadVertData(		vertices, k);
+	mGhost2->LoadVertData(		vertices, k);
+	mGhost3->LoadVertData(		vertices, k);
+	mGhost4->LoadVertData(		vertices, k);
+	mGhost5->LoadVertData(		vertices, k);
 
 	//****************************************************************************
 
@@ -1014,7 +1082,18 @@ void Engine::InitMainMenu()
 	indices.insert(indices.end(), mMedButt->mGrid.Indices.begin(),		mMedButt->mGrid.Indices.end());
 	indices.insert(indices.end(), mHardButt->mGrid.Indices.begin(),		mHardButt->mGrid.Indices.end());
 	indices.insert(indices.end(), mInsaneButt->mGrid.Indices.begin(),	mInsaneButt->mGrid.Indices.end());
-
+	indices.insert(indices.end(), mBoss->mGrid.Indices.begin(),			mBoss->mGrid.Indices.end());
+	indices.insert(indices.end(), mGhost1->mGrid.Indices.begin(),		mGhost1->mGrid.Indices.end());
+	indices.insert(indices.end(), mGhost2->mGrid.Indices.begin(),		mGhost2->mGrid.Indices.end());
+	indices.insert(indices.end(), mGhost3->mGrid.Indices.begin(),		mGhost3->mGrid.Indices.end());
+	indices.insert(indices.end(), mGhost4->mGrid.Indices.begin(),		mGhost4->mGrid.Indices.end());
+	indices.insert(indices.end(), mGhost5->mGrid.Indices.begin(),		mGhost5->mGrid.Indices.end());
+// 	mBoss->
+// 	mGhost1
+// 	mGhost2
+// 	mGhost3
+// 	mGhost4
+// 	mGhost5
 
 	//CREATE INDEX BUFFER
 	D3D11_BUFFER_DESC ibd;
@@ -1102,10 +1181,10 @@ void Engine::DrawMainMenu()
 		mModeButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 		switch (*StateMachine::pGameMode)
 		{
-		case GameMode::EASY:mEasyButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); break;
-		case GameMode::MED:mMedButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); break;
-		case GameMode::HARD:mHardButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); break;
-		case GameMode::INSANE:mInsaneButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime()); break;
+		case GameMode::EASY:mEasyButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());		difficultyTimer = 1.0f;	break;
+		case GameMode::MED:mMedButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());		difficultyTimer = 0.8f;	break;
+		case GameMode::HARD:mHardButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());		difficultyTimer = 0.5f;	break;
+		case GameMode::INSANE:mInsaneButt->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());	difficultyTimer = 0.2f;	break;
 		}
 
 		
@@ -1320,7 +1399,7 @@ void Engine::DrawGameOn()
 	activeTexTech->GetDesc(&techDesc);
 	for (UINT p = 0; p < techDesc.Passes; ++p)
 	{
-		
+
 		md3dImmediateContext->IASetVertexBuffers(0, 1, &mShapesVB, &stride, &offset);
 		md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
 
@@ -1340,41 +1419,63 @@ void Engine::DrawGameOn()
 		md3dImmediateContext->DrawIndexed(mGridIndexCount, mGridIndexOffset, mGridVertexOffset);
 
 
-		mNorthF->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
-		mWestF ->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
-		mEastF ->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
-		mSouthF->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
-		mNorthW->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
-		mSouthW->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
-		mWestW ->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
-		mEastW ->Draw(	activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mNorthF->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mWestF->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mEastF->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mSouthF->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mNorthW->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mSouthW->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mWestW->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mEastW->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 
-		for (int i = 0; i < mInvaders.size(); i++)
+
+		if (*StateMachine::pGameState != GameState::BOSSFIGHT)
 		{
-			mInvaders[i]->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+			for (int i = 0; i < mInvaders.size(); i++)
+			{
+				mInvaders[i]->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+			}
+
+			for (int i = 0; i < mMushrooms.size(); i++)
+			{
+				mMushrooms[i]->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+			}
 		}
-		
-		for (int i = 0; i < mMushrooms.size(); i++)
+		else
 		{
-			mMushrooms[i]->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+			mBoss->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+			for (int i = 0; i < mGhosts.size(); i++)
+			{
+				mGhosts[i]->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+			}
 		}
+
+
+
+
 
 		for (int i = 0; i < mProjectiles.size(); i++)
 		{
 			mProjectiles[i]->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 		}
-		mProjectile->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+
 		//DRAW BUTTS
 		activeTexTech = Effects::BasicFX->Light2TexAlphaClipTech;
 		md3dImmediateContext->OMSetDepthStencilState(RenderStates::ZBufferDisabled, 0); // changing 0 means overlaping draws
 
-		mBugsButt->Draw2D(		activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
-		mCompiledButt->Draw2D(	activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
-		mCompBar->Draw2D(		activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
-		mCompBarOL->Draw2D(		activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
-		mBugBar->Draw2D(		activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
-		mBugBarOL->Draw2D(		activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
-
+		if (*StateMachine::pGameState != GameState::BOSSFIGHT)
+		{
+			mBugsButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+			mCompiledButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+			mCompBar->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+			mCompBarOL->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+			mBugBar->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+			mBugBarOL->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		}
+		else
+		{
+			
+		}
 
 	}
 
@@ -1451,7 +1552,7 @@ void Engine::OnMouseDown(WPARAM btnState, int x, int y)
 		mLastMousePos.x = x;
 		mLastMousePos.y = y;
 		
-
+		
 		switch (*StateMachine::pGameState)
 		{
 		case GameState::MAINMENU:	BtnsMainMenu(x, y, true);		break;
@@ -1676,7 +1777,7 @@ void Engine::BtnsPaused(float x, float y, bool clicked)
 			*StateMachine::pGameState = GameState::MAINMENU;
 			mWalkCamMode = false;
 			ResetCamMainMenu();
-			
+			ClearVectors();
 		}
 	}
 	else{ mQuitButt->hovering = false; }
@@ -1689,6 +1790,7 @@ void Engine::BtnsPaused(float x, float y, bool clicked)
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress = 0.0f;
 			*StateMachine::pGameState = GameState::GAMEON;
+			ClearVectors();
 			ResetCamInGame();
 		}
 	}
@@ -1720,7 +1822,7 @@ void Engine::BtnsWin(float x, float y, bool clicked)
 			mBugBar->currProgress = 0.0f;
 			mWalkCamMode = false;
 			*StateMachine::pGameState = GameState::MAINMENU;
-			ResetCamMainMenu();
+			ResetCamMainMenu(); ClearVectors();
 		}
 	}
 	else{ mQuitButt->hovering = false; }
@@ -1732,7 +1834,7 @@ void Engine::BtnsWin(float x, float y, bool clicked)
 		{
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress = 0.0f;
-			*StateMachine::pGameState = GameState::GAMEON;
+			*StateMachine::pGameState = GameState::GAMEON; ClearVectors(); ResetCamInGame();
 		}
 	}
 	else{ mRestartButt->hovering = false; }
@@ -1748,7 +1850,7 @@ void Engine::BtnsLose(float x, float y, bool clicked)
 			mBugBar->currProgress = 0.0f;
 			mWalkCamMode = false;
 			*StateMachine::pGameState = GameState::MAINMENU;
-			ResetCamMainMenu();
+			ResetCamMainMenu(); ClearVectors();
 		}
 	}
 	else{ mQuitButt->hovering = false; }
@@ -1760,7 +1862,7 @@ void Engine::BtnsLose(float x, float y, bool clicked)
 		{
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress = 0.0f;
-			*StateMachine::pGameState = GameState::GAMEON;
+			*StateMachine::pGameState = GameState::GAMEON; ClearVectors(); ResetCamInGame();
 		}
 	}
 	else{ mRetryButt->hovering = false; }
@@ -1912,7 +2014,35 @@ void Engine::SpawnProjectile()
 
 	Proj->mLook = mCam.GetLook();
 	
-
 	Proj->mMeshBox = mProjectile->mMeshBox;
 	mProjectiles.push_back(Proj);
+}
+void Engine::SpawnGhost()
+{
+	float outSkirtZ, outSkirtX, outSkirtY;
+
+	outSkirtX = mBoss->mPosition.x;
+	outSkirtZ = mBoss->mPosition.z;
+	outSkirtY = mBoss->mPosition.y;
+
+	Button* Ghost = new Button(md3dDevice, 10.0f, 10.0f, false, true);
+
+	float num = MathHelper::RandF();
+	num > 0.80 ? Ghost->UseTexture(mGhost1->mTexSRV) :
+	num > 0.60 ? Ghost->UseTexture(mGhost2->mTexSRV) :
+	num > 0.40 ? Ghost->UseTexture(mGhost3->mTexSRV) :
+	num > 0.20 ? Ghost->UseTexture(mGhost4->mTexSRV) :
+	Ghost->UseTexture(mGhost5->mTexSRV);
+
+	Ghost->SetPos(outSkirtX, outSkirtY - 15.0f, outSkirtZ);
+	Ghost->SetSphereCollider(5.0f);
+	Ghost->SetVertexOffset(mGhost1->GetVertOffset());
+	Ghost->SetIndexOffset(mGhost1->mIndexOffset);
+	Ghost->mIndexCount = mGhost1->mIndexCount;
+
+	XMVECTOR cam = XMVectorNegate(XMLoadFloat3(&mCam.GetLook()));
+	XMStoreFloat3(&Ghost->mLook, cam);
+	
+	Ghost->mMeshBox = mGhost1->mMeshBox;
+	mGhosts.push_back(Ghost);
 }

@@ -91,6 +91,16 @@ VertexOut VS(VertexIn vin)
 	return vout;
 }
 
+VertexOut SimpleVS(VertexIn vin)
+{
+	VertexOut vout;
+	vout.PosW = vin.PosL.xyz;
+	vout.NormalW = mul(vin.NormalL, (float3x3)gWorldInvTranspose);
+	vout.PosH = float4(0.0f,0.0f,0.0f,0.0f);
+	vout.Tex = mul(float4(vin.Tex, 0.0f, 1.0f), gTexTransform).xy;
+	return vout;
+}
+
 
 //EXPLOSION GEOMETRY SHADER
 [maxvertexcount(3)] // amount of verticies being output
@@ -103,7 +113,7 @@ void MyGSExplosion(triangle VertexOut gin[3], inout TriangleStream<GeoOut> triSt
 
 	float3 up = float3(0.0f, 1.0f, 0.0f);
 	float3 look = gEyePosW;
-	//look.y = 0.0f; // y-axis aligned, so project to xz-plane
+	look.y = 0.0f; // y-axis aligned, so project to xz-plane
 	look = normalize(look);  //Normalize it 
 	float3 right = cross(up, look);
 
@@ -666,8 +676,8 @@ technique11 ExpGeomShader
 {
 	pass P0
 	{
-		SetVertexShader(CompileShader(vs_5_0, VS()));
+		SetVertexShader(CompileShader(vs_5_0, SimpleVS()));
 		SetGeometryShader(CompileShader(gs_5_0, MyGSExplosion()));
-		SetPixelShader(CompileShader(ps_5_0, PS(3, true, true, false,false)));
+		SetPixelShader(CompileShader(ps_5_0, PS(2, true, true, false,false)));
 	}
 }
