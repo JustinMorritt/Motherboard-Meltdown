@@ -12,6 +12,7 @@
 #define CAMERA_H
 
 #include "d3dUtil.h"
+#include "xnacollision.h"
 
 class Camera
 {
@@ -63,6 +64,9 @@ public:
 	void Strafe(float d);
 	void Roll(float d);
 	void Walk(float d);
+	void SetConstraints(float x1, float x2, float y1, float y2, float z1, float z2);
+	bool BoundsCheck(XMFLOAT3 pos);
+	bool mUseConstraints;
 
 	// Rotate the camera.
 	void Pitch(float angle);
@@ -71,6 +75,7 @@ public:
 	// After modifying camera position/orientation, call to rebuild the view matrix.
 	void UpdateViewMatrix();
 	float mPitch;
+	XNA::Sphere mSphereCollider;
 private:
 
 	// Camera coordinate system with coordinates relative to world space.
@@ -87,11 +92,15 @@ private:
 	float mFovY;
 	float mNearWindowHeight;
 	float mFarWindowHeight;
+
+	//CONSTRAINTS
+	float x1, x2, y1, y2, z1, z2;
 	
 
 	// Cache View/Proj matrices.
 	XMFLOAT4X4 mView;
 	XMFLOAT4X4 mProj;
+
 };
 
 #endif // CAMERA_H

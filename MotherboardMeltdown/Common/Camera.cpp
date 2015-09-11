@@ -9,9 +9,13 @@ Camera::Camera()
 	mRight(1.0f, 0.0f, 0.0f),
 	mUp(0.0f, 1.0f, 0.0f),
 	mLook(0.0f, 0.0f, 1.0f),
-	mPitch(0.0f)
+	mPitch(0.0f),
+	mUseConstraints(false),
+	x1(0.0f), x2(0.0f), y1(0.0f), y2(0.0f), z1(0.0f), z2(0.0f)
 {
 	SetLens(0.25f*MathHelper::Pi, 1.0f, 1.0f, 1000.0f);
+	mSphereCollider.Center = mPosition;
+	mSphereCollider.Radius = 20.0f;
 }
 
 Camera::~Camera()
@@ -176,20 +180,36 @@ XMMATRIX Camera::ViewProj()const
 
 void Camera::Strafe(float d)
 {
-	// mPosition += d*mRight
 	XMVECTOR s = XMVectorReplicate(d);
 	XMVECTOR r = XMLoadFloat3(&mRight);
 	XMVECTOR p = XMLoadFloat3(&mPosition);
-	XMStoreFloat3(&mPosition, XMVectorMultiplyAdd(s, r, p));
+	XMFLOAT3 test;
+	XMStoreFloat3(&test, XMVectorMultiplyAdd(s, r, p));
+	if (mUseConstraints){if(BoundsCheck(test)){mPosition = test;}}
+	else{mPosition = test;}
 }
 
 void Camera::Walk(float d)
 {
-	// mPosition += d*mLook
 	XMVECTOR s = XMVectorReplicate(d);
 	XMVECTOR l = XMLoadFloat3(&mLook);
 	XMVECTOR p = XMLoadFloat3(&mPosition);
-	XMStoreFloat3(&mPosition, XMVectorMultiplyAdd(s, l, p));
+	XMFLOAT3 test;
+	XMStoreFloat3(&test, XMVectorMultiplyAdd(s, l, p));
+	if (mUseConstraints){ if (BoundsCheck(test)){ mPosition = test; } }
+	else{ mPosition = test; }
+}
+
+void Camera::SetConstraints(float X1, float X2, float Y1, float Y2, float Z1, float Z2)
+{
+	x1 = X1; x2 = X2; y1 = Y1; y2 = Y2; z1 = Z1; z2 = Z2;
+}
+
+bool Camera::BoundsCheck(XMFLOAT3 pos)
+{
+	return (pos.x > x1 && pos.x < x2 &&
+			pos.y > y1 && pos.y < y2 &&
+			pos.z > z1 && pos.z < z2 );
 }
 
 void Camera::Pitch(float angle)
@@ -268,6 +288,8 @@ void Camera::UpdateViewMatrix()
 	mView(1,3) = 0.0f;
 	mView(2,3) = 0.0f;
 	mView(3,3) = 1.0f;
+
+	mSphereCollider.Center = mPosition;
 }
 
 

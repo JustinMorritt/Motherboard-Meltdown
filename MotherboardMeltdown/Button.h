@@ -39,6 +39,7 @@ public:
 	void RotateY(float angle);
 	void RotateX(float angle);
 	void RotateZ(float angle);
+	void SetOrbitPos(float x, float y, float z, float dt);
 
 	//Scale
 	void Scale(float scale);
@@ -106,7 +107,7 @@ public:
 	bool reverseLook;
 	bool mDead;
 	bool mExplode;
-
+	bool mBasicTexTrans;
 	
 
 	//SYSTEM COPIES OF MESH FOR PICKING

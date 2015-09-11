@@ -43,7 +43,8 @@ public:
 	virtual void OnMouseMove(WPARAM btnState, int x, int y){ }
 	virtual void OnKeyUP(WPARAM btnState){ }
 
-
+	int		  m_ScreenWidth;
+	int		  m_ScreenHeight;
 protected:
 	bool InitMainWindow();
 	bool InitGraphicsCard();
@@ -62,8 +63,7 @@ protected:
 	bool	  mFullScreen;
 	UINT      m4xMsaaQuality;
 	int		  m_videoCardMemory;
-	int		  m_ScreenWidth;
-	int		  m_ScreenHeight;
+
 	int		  m_MonitorDenumerator;
 	int		  m_MonitorNumerator;
 	char	  m_pVideoCardDescription[128];

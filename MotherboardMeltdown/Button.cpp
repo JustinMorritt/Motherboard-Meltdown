@@ -27,6 +27,7 @@ flipUpright(false),
 reverseLook(false),
 mDead(false),
 mExplode(false),
+mBasicTexTrans(false),
 turnAngle(0.0f),
 explosionDist(0.0f)
 {
@@ -166,7 +167,7 @@ void Button::Update(const Camera& camera, float dt)
 		float theAngle	= XMVectorGetY(angle);
 
 		XMMATRIX rotY;
-		camera.GetPosition().x < mPosition.x ? rotY = XMMatrixRotationY(-theAngle) : rotY = XMMatrixRotationY(theAngle); 
+		camera.GetPosition().x < mPosition.x ? rotY = XMMatrixRotationY(-theAngle) : rotY = XMMatrixRotationY(theAngle);
 
 		XMStoreFloat4x4(&mWorld, rotY * M); 
 	}
@@ -201,6 +202,11 @@ void Button::Draw(ID3DX11EffectTechnique* activeTech, ID3D11DeviceContext* conte
 		texTrans.y += dt*texTransMult.y;
 		texTrans.z += dt*texTransMult.z;
 	}
+	if (mBasicTexTrans)
+	{
+		Effects::BasicFX->SetTexTransform(XMMatrixTranslation(texTrans.x, texTrans.y, texTrans.z));
+	}
+
 	Effects::BasicFX->SetMaterial(mMat);
 	Effects::BasicFX->SetDiffuseMap(mTexSRV);
 
@@ -509,18 +515,22 @@ void Button::SetGoToPoint(float x, float y, float z)
 {
 	mGoToPos.x = x; mGoToPos.y = y, mGoToPos.z = z;
 	goToPos = true;
+
 	XMVECTOR first = XMLoadFloat3(&mGoToPos);
 	XMVECTOR second = XMLoadFloat3(&mPosition);
-	//sqrt of Final - curr  Vectors
 	XMVECTOR end = XMVectorSubtract(first, second);
-	mDistanceLeft = sqrt((XMVectorGetX(end)*XMVectorGetX(end)) + (XMVectorGetY(end)*XMVectorGetY(end)) + (XMVectorGetZ(end)*XMVectorGetZ(end)));
 
-	//Calculate Direction Vector..
-	XMVECTOR L = XMVector3Normalize(end);
-	XMVECTOR Look = XMLoadFloat3(&mLook);
-	XMVECTOR angle = XMVector3AngleBetweenNormals(L, Look);
+	XMVECTOR length = XMVector3Length(end);
+	mDistanceLeft = XMVectorGetX(length);
+	
+	XMStoreFloat3(&mLook, XMVector3Normalize(end));
+	XMStoreFloat3(&mRight, XMVector3Cross(XMLoadFloat3(&mUp), XMLoadFloat3(&mLook)));
+}
 
-	float theAngle = XMVectorGetZ(angle);
-	turnAngle = theAngle;
-	XMVectorGetX(end) < mPosition.x ? Yaw(-theAngle) : Yaw(theAngle);
+void Button::SetOrbitPos(float x, float y, float z, float dt)
+{
+	rotationY += dt;
+	mPosition.x = x; mPosition.y = y; mPosition.z = z;
+
+
 }

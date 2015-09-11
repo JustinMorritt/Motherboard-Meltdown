@@ -1,7 +1,4 @@
 #include "Engine.h"
-//TODO:..Make A Button Able To Have a Start And End Position and it Goes to it ..
-
-
 
 
 
@@ -21,6 +18,7 @@ Engine::Engine(HINSTANCE hInstance)
 	mSOffButt(0),
 	mBugsButt(0),
 	mQuitButt(0),
+	mBSOD(0),
 	mRestartButt(0),
 	mBackButt(0),
 	mAboutMsgButt(0),
@@ -57,11 +55,22 @@ Engine::Engine(HINSTANCE hInstance)
 	mGhost3(0),
 	mGhost4(0),
 	mGhost5(0),
+	mHPButt(0),
+	mBossBattButt(0),
+	mHPOL(0),
+	mHPBAR(0),
 	mMoveSpeed(500),
 	spawnTimer(0.0f),
+	bossTimer(0.0f),
+	randBossTime(1.0f),
 	bugsWorth(0.03f),
+	dmgAmount(0.01f),
 	difficultyTimer(1.0f),
-	fullyLoaded(false)
+	waitToClickTime(0),
+	fullyLoaded(false),
+	toRandSpot(false),
+	toCam(false),
+	exitable(false)
 {
 	mMainWndCaption = L"Motherboard Meltdown";
 	mEnable4xMsaa = false;
@@ -87,6 +96,35 @@ Engine::Engine(HINSTANCE hInstance)
 	mDirLights[2].Diffuse  = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 	mDirLights[2].Specular = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 	mDirLights[2].Direction = XMFLOAT3(-0.57735f, -0.57735f, -0.57735f);
+
+
+
+
+
+
+
+	mDirLights2[0].Ambient = XMFLOAT4(0.3f, 0.3f, 0.3f, 1.0f);
+	mDirLights2[0].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	mDirLights2[0].Specular = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+	mDirLights2[0].Direction = XMFLOAT3(0.707f, -0.707f, 0.707f);
+			  
+	mDirLights2[1].Ambient = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+	mDirLights2[1].Diffuse = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
+	mDirLights2[1].Specular = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
+	mDirLights2[1].Direction = XMFLOAT3(0.57735f, -0.57735f, 0.57735f);
+			  
+	mDirLights2[2].Ambient = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
+	mDirLights2[2].Diffuse = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
+	mDirLights2[2].Specular = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
+	mDirLights2[2].Direction = XMFLOAT3(-0.57735f, -0.57735f, -0.57735f);
+
+
+
+
+
+
+
+
 
 	mShadowMat.Ambient = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
 	mShadowMat.Diffuse = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.5f);
@@ -115,7 +153,7 @@ Engine::~Engine()
 bool Engine::Init()
 {
 	if(!D3DApp::Init())	return false;
-	mSound.Initialize(mhMainWnd);
+	mSound.Initialize();
 	// Must init Effects first since InputLayouts depend on shader signatures.
 	Effects::InitAll(md3dDevice);
 	mTexMgr.Init(md3dDevice);
@@ -163,7 +201,7 @@ bool Engine::Init()
 	*StateMachine::pMusicState	= MusicState::MUSICON;
 	*StateMachine::pGameMode	= GameMode::EASY;
 
-
+	mCam.SetConstraints(-1200.0f, 1200.0f, -1000.0f, 1000.0f, -1200.0f, 1200.0f);
 
 	return true;
 }
@@ -189,14 +227,11 @@ void Engine::UpdateScene(float dt)
 	case GameState::BOSSFIGHT:
 	case GameState::PAUSED:
 	case GameState::WIN:
-	case GameState::LOSE:		UpdateGame(dt);	break;
+	case GameState::LOSE:		UpdateGame(dt);		break;
+	case GameState::BOSSWIN:	UpdateBossWin(dt);	break;
+	case GameState::BOSSLOSE:	UpdateBossLose(dt);	break;
 	}
-
-	//UPDATE PARTICLE SYSTEMS
-	mFire.Update(dt, mTimer.TotalTime());
-	mRain.Update(dt, mTimer.TotalTime());
 }
-
 void Engine::UpdateMainMenu(float dt)
 {
 	mPlayButt->Update(mCam, dt);
@@ -228,7 +263,7 @@ void Engine::UpdateMainMenu(float dt)
 }
 void Engine::UpdateGame(float dt)
 {
-	(*StateMachine::pGameState == GameState::GAMEON) ? mCursorOn = false : mCursorOn = true;
+	(*StateMachine::pGameState == GameState::GAMEON || *StateMachine::pGameState == GameState::BOSSFIGHT) ? mCursorOn = false : mCursorOn = true;
 
 	mCompiledButt->Update(mCam, dt);
 	mBugsButt->Update(mCam, dt);
@@ -236,23 +271,21 @@ void Engine::UpdateGame(float dt)
 	mRestartButt->Update(mCam, dt);
 	mPausedButt->Update(mCam, dt);
 	mBackButt->Update(mCam, dt);
-	mCompBar->Update(mCam, dt); IncProgress(dt);
+	mCompBar->Update(mCam, dt); if (*StateMachine::pGameState == GameState::GAMEON){ IncProgress(dt); }
 	mCompBarOL->Update(mCam, dt);
 	mBugBar->Update(mCam, dt);
 	mBugBarOL->Update(mCam, dt);
 	mYouWinButt->Update(mCam, dt);
 	mYouLoseButt->Update(mCam, dt);
 	mRetryButt->Update(mCam, dt);
-	if (*StateMachine::pGameState == GameState::BOSSFIGHT)
-	{
+	mBossBattButt->Update(mCam, dt);
 
-	}
 	
 	//TIMER STUFF / SPAWN RATES   *Spawn Before Update Or Youll Get a Flicker Later On Of it Not Translated Yet*
 	spawnTimer += dt;
 	if (spawnTimer >= difficultyTimer)
 	{
-		if (*StateMachine::pGameState != GameState::BOSSFIGHT)
+		if (*StateMachine::pGameState == GameState::GAMEON)
 		{
 			spawnBugTime++;
 			if (spawnBugTime == 1){ SpawnBug(); IncBugs(bugsWorth); spawnBugTime = 0; }
@@ -260,7 +293,8 @@ void Engine::UpdateGame(float dt)
 			spawnMushTime++;
 			if (spawnMushTime == 20){ SpawnMushroom();		spawnMushTime = 0; }
 		}
-		else
+
+		if (*StateMachine::pGameState == GameState::BOSSFIGHT)
 		{
 			spawnBugTime++;
 			if (spawnBugTime == 1){ SpawnGhost(); spawnBugTime = 0; }
@@ -268,13 +302,26 @@ void Engine::UpdateGame(float dt)
 	
 		if (speedBonusTime > 0){ speedBonusTime--;	mMoveSpeed = 1000;	if (speedBonusTime == 0){ mMoveSpeed = 500; } }
 
+		if (waitToClickTime > 0){ waitToClickTime--; }
+		
+
 		spawnTimer = 0.0f;
 	}
 
-	UpdateBugs(dt);
-	UpdatePickups(dt);
+	if (*StateMachine::pGameState == GameState::BOSSFIGHT)
+	{
+		mHPButt->Update(mCam, dt);
+		mHPOL->Update(mCam, dt);
+		mHPBAR->Update(mCam, dt);
+		UpdateGhosts(dt);
+		UpdateBoss(dt);
+	}
+	if (*StateMachine::pGameState == GameState::GAMEON)
+	{
+		UpdateBugs(dt);
+		UpdatePickups(dt);
+	}
 	UpdateProjectiles(dt);
-
 // 	if (GetAsyncKeyState('T') & 0x8000)
 // 		mInvader->Walk(100.0f*dt);
 // 	if (GetAsyncKeyState('H') & 0x8000)
@@ -284,6 +331,20 @@ void Engine::UpdateGame(float dt)
 // 	if (GetAsyncKeyState('J') & 0x8000)
 // 		mInvader->Walk(-100.0f*dt);
 
+}
+void Engine::UpdateBossWin(float dt)
+{
+	UpdateGame(dt);
+}
+void Engine::UpdateBossLose(float dt)
+{
+	mCursorOn = true;
+	mBSOD->Update(mCam, dt);
+	spawnTimer += dt;
+	if (spawnTimer >= 5.0f)
+	{
+		exitable = true;
+	}
 }
 void Engine::UpdateBugs(float dt)
 {
@@ -332,6 +393,10 @@ void Engine::UpdateProjectiles(float dt)
 			mProjectiles[i]->Walk(dt * 1000);
 			if (!ProjectileBounds(mProjectiles[i])){	mProjectiles[i]->mDead		= true; }
 			if (ProjectileHitBug(mProjectiles[i])){		mProjectiles[i]->mExplode	= true; }
+			if (*StateMachine::pGameState == GameState::BOSSFIGHT){
+				if (ProjectileHitBoss(mProjectiles[i])){ mProjectiles[i]->mExplode = true; }
+				if (ProjectileHitGhost(mProjectiles[i])){ mProjectiles[i]->mExplode = true; }
+			}
 			mProjectiles[i]->Update(mCam, dt);
 		}
 		
@@ -345,39 +410,56 @@ void Engine::UpdateProjectiles(float dt)
 		}
 	}
 }
-
-void Engine::DrawScene()
+void Engine::UpdateGhosts(float dt)
 {
-	ClearScene();
-	mSky->Draw(md3dImmediateContext, mCam); //Draw Sky First So The Z Buffer Takes Effect  ... Otherwise it Draws Over I
-
-
-	md3dImmediateContext->IASetInputLayout(InputLayouts::Basic32);
-    md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	
-
-	if( mWireMode )	md3dImmediateContext->RSSetState(RenderStates::WireframeRS);
-
-	//SWITCH ON THE MODE THE GAME IS IN 
-	switch (*StateMachine::pGameState)
+	for (int i = 0; i < mGhosts.size(); i++)
 	{
-	case GameState::MAINMENU:	DrawMainMenu(); break;
-	case GameState::ABOUT:		DrawAbout();	break;
-	case GameState::PAUSED:		DrawPaused();	break;
-	case GameState::WIN:		DrawWin();		break;
-	case GameState::LOSE:		DrawLose();		break;
-	case GameState::BOSSFIGHT:		
-	case GameState::GAMEON:		DrawGameOn();	break;
+		 mGhosts[i]->Walk(1000 * dt); 
+		 if (!ProjectileBounds(mGhosts[i])){ mGhosts[i]->mDead = true; }
+		 if (GhostHitCam(mGhosts[i])){ *StateMachine::pGameState = GameState::BOSSLOSE; /*LOSE GAME */ }
+		mGhosts[i]->Update(mCam, dt);
+		if (mGhosts[i]->mDead)
+		{
+			delete mGhosts[i];
+			mGhosts[i] = nullptr;
+			mGhosts.erase(mGhosts.begin() + i);
+		}
+	}
+}
+void Engine::UpdateBoss(float dt)
+{
+	bossTimer += dt;
+	if (bossTimer > randBossTime)
+	{
+		toRandSpot = false; toCam = false;
+		MathHelper::RandF() > 0.5 ? toRandSpot = true : toCam = true;
+
+		if (toRandSpot){ mBoss->SetGoToPoint(MathHelper::RandF(-1000.0f, 1000.0f), mBoss->mPosition.y, MathHelper::RandF(-1000.0f, 1000.0f)); }
+		randBossTime = MathHelper::RandF(1.0f, 2.0f);
+		bossTimer = 0.0f;
+	}
+	
+	if (toRandSpot)
+	{
+		mBoss->Walk(dt * 500);
+		if (!mBoss->goToPos)
+		{
+			toCam = true;
+			toRandSpot = false;
+		}
 	}
 
+	if (toCam)
+	{
+		mBoss->SetGoToPoint(mCam.GetPosition().x, mBoss->mPosition.y, mCam.GetPosition().z);
+		mBoss->Walk(dt * 200);
+	}
 	
-	// Draw particle systems last so it is blended with scene.
-// 	mFire.SetEyePos(mCam.GetPosition());
-// 	mFire.Draw(md3dImmediateContext, mCam);
-// 	md3dImmediateContext->OMSetBlendState(0, blendFactor, 0xffffffff); // restore default
-	RestoreStates();
-	HR(mSwapChain->Present(0, 0));
+	mBoss->Update(mCam, dt);
+	if (BossHitCam(mBoss)){ *StateMachine::pGameState = GameState::BOSSLOSE;/*LOSE GAME */ }
 }
+
+
 
 
 //HELPERS
@@ -423,8 +505,8 @@ void Engine::ResetCamInGame()
 void Engine::IncProgress(float dt)
 {
 	(mCompBar->currProgress < 1.0) ? mCompBar->currProgress += dt / 100 : mCompBar->currProgress = 1.0;
-	if (mCompBar->currProgress == 1.0){ *StateMachine::pGameState = GameState::WIN; }
-}
+	if (mCompBar->currProgress == 1.0){ *StateMachine::pGameState = GameState::WIN; waitToClickTime = 1; }
+} 
 void Engine::IncBugs(float bug)
 {
 	if (mBugBar->currProgress < 1.0) 
@@ -432,16 +514,51 @@ void Engine::IncBugs(float bug)
 		mBugBar->currProgress += bug;
 		if (mBugBar->currProgress >= 1.0)
 		{
-			mBugBar->currProgress = 1.0; *StateMachine::pGameState = GameState::LOSE;
+			mBugBar->currProgress = 1.0; *StateMachine::pGameState = GameState::LOSE; waitToClickTime = 1;
 		}
 	} 
 	
-}
-void Engine::DecBugs(float bug)
+}  
+void Engine::DecBugs(float bug)		
 {
 	if(mBugBar->currProgress > 0)mBugBar->currProgress -= bug;
 	if(mBugBar->currProgress < 0)mBugBar->currProgress = 0.0f;
 }
+void Engine::DecHP(float hp)
+{
+	if (mHPBAR->currProgress > 0)mHPBAR->currProgress -= hp;
+	if (mHPBAR->currProgress < 0){ mHPBAR->currProgress = 0.0f; *StateMachine::pGameState = GameState::BOSSWIN; waitToClickTime = 1; }
+}
+void Engine::ClearVectors()
+{
+	for (int i = 0; i < mInvaders.size(); i++)
+	{
+		delete mInvaders[i];
+		mInvaders[i] = nullptr;
+	}mInvaders.clear();
+
+	for (int i = 0; i < mMushrooms.size(); i++)
+	{
+		delete mMushrooms[i];
+		mMushrooms[i] = nullptr;
+	}mMushrooms.clear();
+
+	for (int i = 0; i < mProjectiles.size(); i++)
+	{
+		delete mProjectiles[i];
+		mProjectiles[i] = nullptr;
+	}mProjectiles.clear();
+
+	for (int i = 0; i < mGhosts.size(); i++)
+	{
+		delete mGhosts[i];
+		mGhosts[i] = nullptr;
+	}mGhosts.clear();
+}
+
+
+
+//COLLISION CASES
 bool Engine::CamOnPickUp(Button* pickup)
 {
 	//Convert from 0,0 at center of screen coordinates to 0,0 top left ...  cartesian to screen 
@@ -479,26 +596,38 @@ bool Engine::ProjectileHitBug(Button* proj)
 	}
 	return hit;
 }
-void Engine::ClearVectors()
+bool Engine::ProjectileHitBoss(Button* proj)
 {
-	for (int i = 0; i < mInvaders.size(); i++)
-	{
-		delete mInvaders[i];
-		mInvaders[i] = nullptr;
-	}mInvaders.clear();
+	bool hit = false;
 
-	for (int i = 0; i < mMushrooms.size(); i++)
+	if (XNA::IntersectSphereSphere(&mBoss->mSphereCollider, &proj->mSphereCollider))
 	{
-		delete mMushrooms[i];
-		mMushrooms[i] = nullptr;
-	}mMushrooms.clear();
-
-	for (int i = 0; i < mProjectiles.size(); i++)
-	{
-		delete mProjectiles[i];
-		mProjectiles[i] = nullptr;
-	}mProjectiles.clear();
+		hit = true; DecHP(dmgAmount);
+	}
+	return hit;
 }
+bool Engine::ProjectileHitGhost(Button* proj)
+{
+	bool hit = false;
+	for (int i = 0; i < mGhosts.size(); i++)
+	{
+		if (XNA::IntersectSphereSphere(&mGhosts[i]->mSphereCollider, &proj->mSphereCollider))
+		{
+			hit = true; //mGhosts[i]->mDead = true;
+		}
+	}
+	return hit;
+}
+bool Engine::GhostHitCam(Button* ghost)
+{
+	return XNA::IntersectSphereSphere(&mCam.mSphereCollider, &ghost->mSphereCollider);
+}
+bool Engine::BossHitCam(Button* boss)
+{
+	return XNA::IntersectSphereSphere(&mCam.mSphereCollider, &boss->mSphereCollider);
+}
+
+
 
 //GAME INITS
 void Engine::InitMainMenu()
@@ -532,13 +661,27 @@ void Engine::InitMainMenu()
 	mYouWinButt		= new Button(md3dDevice, 750.0f, 350.0f);
 	mYouLoseButt	= new Button(md3dDevice, 750.0f, 350.0f);
 	mRetryButt		= new Button(md3dDevice, 350.0f, 200.0f);
+	mHPButt			= new Button(md3dDevice, 200.0f, 200.0f);
+	mBossBattButt	= new Button(md3dDevice, 1000.0f, 350.0f);
+	mHPOL			= new Button(md3dDevice, 900.0f, 60.0f);
+	mHPBAR			= new Button(md3dDevice, 900.0f, 60.0f);
 
-	mBoss	= new Button(md3dDevice, 800.0f, 50.0f, 0.0f, true);
-	mGhost1 = new Button(md3dDevice, 50.0f, 50.0f);
-	mGhost2 = new Button(md3dDevice, 50.0f, 50.0f);
-	mGhost3 = new Button(md3dDevice, 50.0f, 50.0f);
-	mGhost4 = new Button(md3dDevice, 50.0f, 50.0f);
-	mGhost5 = new Button(md3dDevice, 50.0f, 50.0f);
+	mBSOD = new Button(md3dDevice, m_ScreenWidth, m_ScreenHeight);
+
+	mBoss = new Button(md3dDevice, 100.0f, 100.0f, 0.0f, true); mBoss->billboard = true;
+	
+	
+	mBoss->SetPos(0.0f, 100.0f, 700);
+	mBoss->SetSphereCollider(100.0f);
+	mBoss->reverseLook = true; 
+	mBoss->mBasicTexTrans = true;
+	mBoss->texTrans = { 0.73f, 1.0f, 1.0f };
+
+	mGhost1 = new Button(md3dDevice, 50.0f, 50.0f, 0.0f, false, true);
+	mGhost2 = new Button(md3dDevice, 50.0f, 50.0f, 0.0f, false, true);
+	mGhost3 = new Button(md3dDevice, 50.0f, 50.0f, 0.0f, false, true);
+	mGhost4 = new Button(md3dDevice, 50.0f, 50.0f, 0.0f, false, true);
+	mGhost5 = new Button(md3dDevice, 50.0f, 50.0f, 0.0f, false, true);
 
 	mPlayButt->LoadTexture(			md3dDevice, L"Textures/play.dds");
 	mSoundButt->LoadTexture(		md3dDevice, L"Textures/sound.dds");
@@ -565,13 +708,17 @@ void Engine::InitMainMenu()
 	mMedButt->LoadTexture(			md3dDevice, L"Textures/med.dds");
 	mHardButt->LoadTexture(			md3dDevice, L"Textures/hard.dds");
 	mInsaneButt->LoadTexture(		md3dDevice, L"Textures/insane.dds");
-	mBoss->LoadTexture(md3dDevice, L"Textures/boss.dds");
-	mGhost1->LoadTexture(md3dDevice, L"Textures/ghost1.dds");
-	mGhost2->LoadTexture(md3dDevice, L"Textures/ghost2.dds");
-	mGhost3->LoadTexture(md3dDevice, L"Textures/ghost3.dds");
-	mGhost4->LoadTexture(md3dDevice, L"Textures/ghost4.dds");
-	mGhost5->LoadTexture(md3dDevice, L"Textures/ghost5.dds");
-
+	mBoss->LoadTexture(				md3dDevice, L"Textures/boss.dds");
+	mGhost1->LoadTexture(			md3dDevice, L"Textures/ghost1.dds");
+	mGhost2->LoadTexture(			md3dDevice, L"Textures/ghost2.dds");
+	mGhost3->LoadTexture(			md3dDevice, L"Textures/ghost3.dds");
+	mGhost4->LoadTexture(			md3dDevice, L"Textures/ghost4.dds");
+	mGhost5->LoadTexture(			md3dDevice, L"Textures/ghost5.dds");
+	mHPButt->LoadTexture(			md3dDevice, L"Textures/hp.dds");
+	mBossBattButt->LoadTexture(		md3dDevice, L"Textures/bossbattle.dds");
+	mHPOL->LoadTexture(				md3dDevice, L"Textures/BarOL.dds");
+	mHPBAR->LoadTexture(			md3dDevice, L"Textures/bugsBar.dds");
+	mBSOD->LoadTexture(				md3dDevice, L"Textures/bsod.dds");
 
 	mInvader = new Button(md3dDevice, 50.0f, 50.0f, 0.0f, false, true);
 	mInvader->LoadTexture(md3dDevice, L"Textures/invader.dds");
@@ -618,7 +765,7 @@ void Engine::InitMainMenu()
 	mMushroom = new Button(md3dDevice, 20.0f, 20.0f, 0.0f, false, true);
 	mMushroom->LoadTexture(md3dDevice, L"Textures/mushroom.dds");
 	mMushroom->SetSphereCollider(10.0f);
-	mProjectile = new Button(md3dDevice, 10.0f, 10.0f, 0.0f, true);
+	mProjectile = new Button(md3dDevice, 10.0f, 20.0f, 0.0f, true);
 	mProjectile->LoadTexture(md3dDevice, L"Textures/diamondPlate.dds");
 	mProjectile->SetSphereCollider(5.0f);
 	mProjectile->SetPos(0.0f, 50.0f, 800.0f);
@@ -656,6 +803,7 @@ void Engine::InitMainMenu()
 	mInsaneButt->SetPos(20.0f, 50.0f, -280.0f);
 	mInsaneButt->Pitch(XM_PI / 4.5);
 
+	
 
 	mTitleButt->SetPos(0.0f, 110.0f, -200.0f);
 	mTitleButt->Pitch(XM_PI / 4.5);
@@ -679,6 +827,17 @@ void Engine::InitMainMenu()
 	mPausedButt->SetPos(0.0f, 150.0f, -90.0f);
 	mPausedButt->Pitch(XM_PI / 4);
 
+
+	mHPButt->SetPos(-700.0f, 450.0f, 0.0f);
+	mHPButt->Pitch(XM_PI / 4);
+	mBossBattButt->SetPos(0.0f, 150.0f, -90.0f);
+	mBossBattButt->Pitch(XM_PI / 4);
+	mHPOL->SetPos(-30.0f, 450.0f, -90.0f);
+	mHPOL->Pitch(XM_PI / 4);
+	mHPBAR->SetPos(-30.0f, 450.0f, -90.0f);
+	mHPBAR->Pitch(XM_PI / 4);
+	mHPBAR->progressBar = true;
+	mHPBAR->currProgress = 1.0;
 
 
 	mBugsButt->SetPos(-700.0f, -450.0f, -90.0f);
@@ -712,6 +871,10 @@ void Engine::InitMainMenu()
 	mYouLoseButt->Pitch(XM_PI / 4);
 	mRetryButt->SetPos(-700.0f, 100.0f, -90.0f);
 	mRetryButt->Pitch(XM_PI / 4);
+
+	mBSOD->SetPos(0.0f, 0.0f, 0.0f);
+	mBSOD->Pitch(XM_PI / 2);
+
 
 	mInvader->reverseLook = true;
 	mInvader->SetPos(0.0f, 50.0f, 500.0f);
@@ -806,12 +969,17 @@ void Engine::InitMainMenu()
 	mMedButt->SetVertexOffset(mEasyButt->GetVertOffset()		+ mEasyButt->mGrid.Vertices.size());
 	mHardButt->SetVertexOffset(mMedButt->GetVertOffset()		+ mMedButt->mGrid.Vertices.size());
 	mInsaneButt->SetVertexOffset(mHardButt->GetVertOffset()		+ mHardButt->mGrid.Vertices.size());
-	mBoss->SetVertexOffset(mInsaneButt->GetVertOffset() + mInsaneButt->mGrid.Vertices.size());
-	mGhost1->SetVertexOffset(mBoss->GetVertOffset() + mBoss->mGrid.Vertices.size());
-	mGhost2->SetVertexOffset(mGhost1->GetVertOffset() + mGhost1->mGrid.Vertices.size());
-	mGhost3->SetVertexOffset(mGhost2->GetVertOffset() + mGhost2->mGrid.Vertices.size());
-	mGhost4->SetVertexOffset(mGhost3->GetVertOffset() + mGhost3->mGrid.Vertices.size());
-	mGhost5->SetVertexOffset(mGhost4->GetVertOffset() + mGhost4->mGrid.Vertices.size());
+	mBoss->SetVertexOffset(mInsaneButt->GetVertOffset()			+ mInsaneButt->mGrid.Vertices.size());
+	mGhost1->SetVertexOffset(mBoss->GetVertOffset()				+ mBoss->mGrid.Vertices.size());
+	mGhost2->SetVertexOffset(mGhost1->GetVertOffset()			+ mGhost1->mGrid.Vertices.size());
+	mGhost3->SetVertexOffset(mGhost2->GetVertOffset()			+ mGhost2->mGrid.Vertices.size());
+	mGhost4->SetVertexOffset(mGhost3->GetVertOffset()			+ mGhost3->mGrid.Vertices.size());
+	mGhost5->SetVertexOffset(mGhost4->GetVertOffset()			+ mGhost4->mGrid.Vertices.size());
+	mHPButt->SetVertexOffset(mGhost5->GetVertOffset()			+ mGhost5->mGrid.Vertices.size());
+	mBossBattButt->SetVertexOffset(mHPButt->GetVertOffset()		+ mHPButt->mGrid.Vertices.size());
+	mHPOL->SetVertexOffset(mBossBattButt->GetVertOffset()		+ mBossBattButt->mGrid.Vertices.size());
+	mHPBAR->SetVertexOffset(mHPOL->GetVertOffset()				+ mHPOL->mGrid.Vertices.size());
+	mBSOD->SetVertexOffset(mHPBAR->GetVertOffset()				+ mHPBAR->mGrid.Vertices.size());
 
 	// Cache the index count of each object.
 	mGridIndexCount = grid.Indices.size();
@@ -863,6 +1031,11 @@ void Engine::InitMainMenu()
 	mGhost3->SetIndexOffset(		mGhost2->GetIndOffset()			+ mGhost2->mGrid.Indices.size());
 	mGhost4->SetIndexOffset(		mGhost3->GetIndOffset()			+ mGhost3->mGrid.Indices.size());
 	mGhost5->SetIndexOffset(		mGhost4->GetIndOffset()			+ mGhost4->mGrid.Indices.size());
+	mHPButt->SetIndexOffset(		mGhost5->GetIndOffset()			+ mGhost5->mGrid.Indices.size());
+	mBossBattButt->SetIndexOffset(	mHPButt->GetIndOffset()			+ mHPButt->mGrid.Indices.size());
+	mHPOL->SetIndexOffset(			mBossBattButt->GetIndOffset()	+ mBossBattButt->mGrid.Indices.size());
+	mHPBAR->SetIndexOffset(			mHPOL->GetIndOffset()			+ mHPOL->mGrid.Indices.size());
+	mBSOD->SetIndexOffset(			mHPBAR->GetIndOffset()			+ mHPBAR->mGrid.Indices.size());
 
 
 	UINT totalVertexCount = grid.Vertices.size()
@@ -911,56 +1084,65 @@ void Engine::InitMainMenu()
 		+ mGhost2->mGrid.Vertices.size()
 		+ mGhost3->mGrid.Vertices.size()
 		+ mGhost4->mGrid.Vertices.size()
-		+ mGhost5->mGrid.Vertices.size();
+		+ mGhost5->mGrid.Vertices.size()
+		+ mHPButt->mGrid.Vertices.size()
+		+ mBossBattButt->mGrid.Vertices.size()
+		+ mHPOL->mGrid.Vertices.size()
+		+ mHPBAR->mGrid.Vertices.size()
+		+ mBSOD->mGrid.Vertices.size();
 
-	UINT totalIndexCount = mGridIndexCount
-		+ mPlayButt->mIndexCount
-		+ mSoundButt->mIndexCount
-		+ mMusicButt->mIndexCount
-		+ mSOnButt->mIndexCount
-		+ mSOffButt->mIndexCount
-		+ mMOnButt->mIndexCount
-		+ mMOffButt->mIndexCount
-		+ mTitleButt->mIndexCount
-		+ mAboutButt->mIndexCount
-		+ mCompiledButt->mIndexCount
-		+ mBymeButt->mIndexCount
-		+ mBugsButt->mIndexCount
-		+ mQuitButt->mIndexCount
-		+ mRestartButt->mIndexCount
-		+ mPausedButt->mIndexCount
-		+ mBackButt->mIndexCount
-		+ mAboutMsgButt->mIndexCount
-		+ mNorthF->mIndexCount
-		+ mWestF->mIndexCount
-		+ mEastF->mIndexCount
-		+ mSouthF->mIndexCount
-		+ mCompBar->mIndexCount
-		+ mCompBarOL->mIndexCount
-		+ mBugBar->mIndexCount
-		+ mBugBarOL->mIndexCount
-		+ mYouWinButt->mIndexCount
-		+ mYouLoseButt->mIndexCount
-		+ mRetryButt->mIndexCount
-		+ mInvader->mIndexCount
-		+ mMushroom->mIndexCount
-		+ mProjectile->mIndexCount
-		+ mNorthW->mIndexCount
-		+ mSouthW->mIndexCount
-		+ mWestW->mIndexCount
-		+ mEastW->mIndexCount
-		+ mModeButt->mIndexCount
-		+ mEasyButt->mIndexCount
-		+ mMedButt->mIndexCount
-		+ mHardButt->mIndexCount
-		+ mInsaneButt->mIndexCount
-		+ mBoss->mIndexCount
-		+ mGhost1->mIndexCount
-		+ mGhost2->mIndexCount
-		+ mGhost3->mIndexCount
-		+ mGhost4->mIndexCount
-		+ mGhost5->mIndexCount;
-
+		UINT totalIndexCount = mGridIndexCount
+			+ mPlayButt->mIndexCount
+			+ mSoundButt->mIndexCount
+			+ mMusicButt->mIndexCount
+			+ mSOnButt->mIndexCount
+			+ mSOffButt->mIndexCount
+			+ mMOnButt->mIndexCount
+			+ mMOffButt->mIndexCount
+			+ mTitleButt->mIndexCount
+			+ mAboutButt->mIndexCount
+			+ mCompiledButt->mIndexCount
+			+ mBymeButt->mIndexCount
+			+ mBugsButt->mIndexCount
+			+ mQuitButt->mIndexCount
+			+ mRestartButt->mIndexCount
+			+ mPausedButt->mIndexCount
+			+ mBackButt->mIndexCount
+			+ mAboutMsgButt->mIndexCount
+			+ mNorthF->mIndexCount
+			+ mWestF->mIndexCount
+			+ mEastF->mIndexCount
+			+ mSouthF->mIndexCount
+			+ mCompBar->mIndexCount
+			+ mCompBarOL->mIndexCount
+			+ mBugBar->mIndexCount
+			+ mBugBarOL->mIndexCount
+			+ mYouWinButt->mIndexCount
+			+ mYouLoseButt->mIndexCount
+			+ mRetryButt->mIndexCount
+			+ mInvader->mIndexCount
+			+ mMushroom->mIndexCount
+			+ mProjectile->mIndexCount
+			+ mNorthW->mIndexCount
+			+ mSouthW->mIndexCount
+			+ mWestW->mIndexCount
+			+ mEastW->mIndexCount
+			+ mModeButt->mIndexCount
+			+ mEasyButt->mIndexCount
+			+ mMedButt->mIndexCount
+			+ mHardButt->mIndexCount
+			+ mInsaneButt->mIndexCount
+			+ mBoss->mIndexCount
+			+ mGhost1->mIndexCount
+			+ mGhost2->mIndexCount
+			+ mGhost3->mIndexCount
+			+ mGhost4->mIndexCount
+			+ mGhost5->mIndexCount
+			+ mHPButt->mIndexCount
+			+ mBossBattButt->mIndexCount
+			+ mHPOL->mIndexCount
+			+ mHPBAR->mIndexCount
+			+ mBSOD->mIndexCount;
 
 	//
 	// Extract the vertex elements we are interested in and pack the
@@ -1022,7 +1204,11 @@ void Engine::InitMainMenu()
 	mGhost3->LoadVertData(		vertices, k);
 	mGhost4->LoadVertData(		vertices, k);
 	mGhost5->LoadVertData(		vertices, k);
-
+	mHPButt->LoadVertData(		vertices, k);
+	mBossBattButt->LoadVertData(vertices, k);
+	mHPOL->LoadVertData(		vertices, k);
+	mHPBAR->LoadVertData(		vertices, k);
+	mBSOD->LoadVertData(		vertices, k);
 	//****************************************************************************
 
 
@@ -1088,13 +1274,13 @@ void Engine::InitMainMenu()
 	indices.insert(indices.end(), mGhost3->mGrid.Indices.begin(),		mGhost3->mGrid.Indices.end());
 	indices.insert(indices.end(), mGhost4->mGrid.Indices.begin(),		mGhost4->mGrid.Indices.end());
 	indices.insert(indices.end(), mGhost5->mGrid.Indices.begin(),		mGhost5->mGrid.Indices.end());
-// 	mBoss->
-// 	mGhost1
-// 	mGhost2
-// 	mGhost3
-// 	mGhost4
-// 	mGhost5
+	indices.insert(indices.end(), mHPButt->mGrid.Indices.begin(),		mHPButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mBossBattButt->mGrid.Indices.begin(), mBossBattButt->mGrid.Indices.end());
+	indices.insert(indices.end(), mHPOL->mGrid.Indices.begin(),			mHPOL->mGrid.Indices.end());
+	indices.insert(indices.end(), mHPBAR->mGrid.Indices.begin(),		mHPBAR->mGrid.Indices.end());
+	indices.insert(indices.end(), mBSOD->mGrid.Indices.begin(),			mBSOD->mGrid.Indices.end());
 
+	
 	//CREATE INDEX BUFFER
 	D3D11_BUFFER_DESC ibd;
 	ibd.Usage = D3D11_USAGE_IMMUTABLE;
@@ -1127,6 +1313,33 @@ void Engine::InitLose()
 
 
 //GAME DRAWS
+void Engine::DrawScene()
+{
+	ClearScene();
+	mSky->Draw(md3dImmediateContext, mCam); //Draw Sky First So The Z Buffer Takes Effect  ... Otherwise it Draws Over I
+
+	md3dImmediateContext->IASetInputLayout(InputLayouts::Basic32);
+    md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	
+	if( mWireMode )	md3dImmediateContext->RSSetState(RenderStates::WireframeRS);
+
+	//SWITCH ON THE MODE THE GAME IS IN 
+	switch (*StateMachine::pGameState)
+	{
+	case GameState::MAINMENU:	DrawMainMenu(); break;
+	case GameState::ABOUT:		DrawAbout();	break;
+	case GameState::PAUSED:		DrawPaused();	break;
+	case GameState::WIN:		DrawWin();		break;
+	case GameState::LOSE:		DrawLose();		break;
+	case GameState::BOSSFIGHT:		
+	case GameState::GAMEON:		DrawGameOn();	break;
+	case GameState::BOSSWIN:	DrawBossWin();	break;
+	case GameState::BOSSLOSE:	DrawBossLose();	break;
+	}
+
+	RestoreStates();
+	HR(mSwapChain->Present(0, 0));
+}
 void Engine::DrawMainMenu()
 {
 	UINT stride = sizeof(Vertex::Basic32);
@@ -1202,7 +1415,10 @@ void Engine::DrawMainMenu()
 		mWestF->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 		mEastF->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 		mSouthF->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
-
+		mNorthW->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mSouthW->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mWestW->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mEastW->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 	}
 
 	// Transform NDC space [-1,+1]^2 to texture space [0,1]^2
@@ -1323,6 +1539,10 @@ void Engine::DrawAbout()
 		mWestF->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 		mEastF->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 		mSouthF->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mNorthW->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mSouthW->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mWestW->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
+		mEastW->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 	}
 
 	//SHADOWS *******************************************************************************************************
@@ -1360,7 +1580,7 @@ void Engine::DrawPaused()
 	XMMATRIX viewProj = mCam.ViewProj();
 
 	// Set per frame constants.
-	Effects::BasicFX->SetDirLights(mDirLights);
+	Effects::BasicFX->SetDirLights(mDirLights2);
 	Effects::BasicFX->SetEyePosW(mCam.GetPosition());
 
 	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light1TexAlphaClipTech;
@@ -1453,13 +1673,13 @@ void Engine::DrawGameOn()
 
 
 
-
 		for (int i = 0; i < mProjectiles.size(); i++)
 		{
 			mProjectiles[i]->Draw(activeTexTech, md3dImmediateContext, p, mCam, mTimer.DeltaTime());
 		}
 
 		//DRAW BUTTS
+		Effects::BasicFX->SetDirLights(mDirLights2);
 		activeTexTech = Effects::BasicFX->Light2TexAlphaClipTech;
 		md3dImmediateContext->OMSetDepthStencilState(RenderStates::ZBufferDisabled, 0); // changing 0 means overlaping draws
 
@@ -1474,12 +1694,12 @@ void Engine::DrawGameOn()
 		}
 		else
 		{
-			
+			mHPBAR->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+			mHPButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+			mHPOL->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
 		}
 
 	}
-
-	RestoreStates();
 }
 void Engine::DrawWin()
 {
@@ -1493,7 +1713,7 @@ void Engine::DrawWin()
 	XMMATRIX viewProj = mCam.ViewProj();
 
 	// Set per frame constants.
-	Effects::BasicFX->SetDirLights(mDirLights);
+	Effects::BasicFX->SetDirLights(mDirLights2);
 	Effects::BasicFX->SetEyePosW(mCam.GetPosition());
 
 	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light1TexAlphaClipTech;
@@ -1503,7 +1723,7 @@ void Engine::DrawWin()
 	md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
 	for (UINT p = 0; p < techDesc.Passes; ++p)
 	{
-		mYouWinButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mBossBattButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
 		mQuitButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
 		mRestartButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
 	}
@@ -1523,7 +1743,7 @@ void Engine::DrawLose()
 	XMMATRIX viewProj = mCam.ViewProj();
 
 	// Set per frame constants.
-	Effects::BasicFX->SetDirLights(mDirLights);
+	Effects::BasicFX->SetDirLights(mDirLights2);
 	Effects::BasicFX->SetEyePosW(mCam.GetPosition());
 
 	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light1TexAlphaClipTech;
@@ -1541,7 +1761,61 @@ void Engine::DrawLose()
 	RestoreStates();
 	DrawGameOn();
 }
+void Engine::DrawBossWin()
+{
+	UINT stride = sizeof(Vertex::Basic32);
+	UINT offset = 0;
 
+	mCam.UpdateViewMatrix();
+
+	XMMATRIX view = mCam.View();
+	XMMATRIX proj = mCam.Proj();
+	XMMATRIX viewProj = mCam.ViewProj();
+
+	// Set per frame constants.
+	Effects::BasicFX->SetDirLights(mDirLights2);
+	Effects::BasicFX->SetEyePosW(mCam.GetPosition());
+
+	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light1TexAlphaClipTech;
+	D3DX11_TECHNIQUE_DESC techDesc;
+	activeTexTech->GetDesc(&techDesc);
+	md3dImmediateContext->IASetVertexBuffers(0, 1, &mShapesVB, &stride, &offset);
+	md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		mYouWinButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mQuitButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+		mRestartButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+	}
+
+	RestoreStates();
+	DrawGameOn();
+}
+void Engine::DrawBossLose()
+{
+	UINT stride = sizeof(Vertex::Basic32);
+	UINT offset = 0;
+
+	mCam.UpdateViewMatrix();
+
+	XMMATRIX view = mCam.View();
+	XMMATRIX proj = mCam.Proj();
+	XMMATRIX viewProj = mCam.ViewProj();
+
+	// Set per frame constants.
+	Effects::BasicFX->SetDirLights(mDirLights2);
+	Effects::BasicFX->SetEyePosW(mCam.GetPosition());
+
+	ID3DX11EffectTechnique* activeTexTech = Effects::BasicFX->Light1TexAlphaClipTech;
+	D3DX11_TECHNIQUE_DESC techDesc;
+	activeTexTech->GetDesc(&techDesc);
+	md3dImmediateContext->IASetVertexBuffers(0, 1, &mShapesVB, &stride, &offset);
+	md3dImmediateContext->IASetIndexBuffer(mShapesIB, DXGI_FORMAT_R32_UINT, 0);
+	for (UINT p = 0; p < techDesc.Passes; ++p)
+	{
+		mBSOD->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
+	}
+}
 
 
 //KEYBOARD/MOUSE
@@ -1552,23 +1826,28 @@ void Engine::OnMouseDown(WPARAM btnState, int x, int y)
 		mLastMousePos.x = x;
 		mLastMousePos.y = y;
 		
-		
-		switch (*StateMachine::pGameState)
-		{
-		case GameState::MAINMENU:	BtnsMainMenu(x, y, true);		break;
-		case GameState::ABOUT:		BtnsAbout(x, y, true);			break;
-		case GameState::PAUSED:		BtnsPaused(x, y, true);			break;
-		case GameState::WIN:		BtnsWin(x, y, true);			break;
-		case GameState::LOSE:		BtnsLose(x, y, true);			break;
-		case GameState::GAMEON:		BtnsGameOn(x, y, true);			break;
+		if (waitToClickTime == 0)
+		{	
+			switch (*StateMachine::pGameState)
+			{
+			case GameState::MAINMENU:	BtnsMainMenu(x, y, true);		break;
+			case GameState::ABOUT:		BtnsAbout(x, y, true);			break;
+			case GameState::PAUSED:		BtnsPaused(x, y, true);			break;
+			case GameState::WIN:		BtnsWin(x, y, true);			break;
+			case GameState::LOSE:		BtnsLose(x, y, true);			break;
+			case GameState::GAMEON:					
+			case GameState::BOSSFIGHT:	BtnsGameOn(x, y, true);			break;
+			case GameState::BOSSWIN:	BtnsBossWin(x, y, true);		break;
+			case GameState::BOSSLOSE:	BtnsBossLose(x, y, true);		break;
+			}
 		}
 
-		SetCapture(mhMainWnd);
+		//SetCapture(mhMainWnd);
 	}
 }
 void Engine::OnMouseUp(WPARAM btnState, int x, int y)
 {
-	ReleaseCapture();
+	//ReleaseCapture();
 }
 void Engine::OnMouseMove(WPARAM btnState, int x, int y)
 {
@@ -1582,9 +1861,11 @@ void Engine::OnMouseMove(WPARAM btnState, int x, int y)
 		case GameState::WIN:		BtnsWin(x, y, false);			break;
 		case GameState::LOSE:		BtnsLose(x, y, false);			break;
 		case GameState::GAMEON:		BtnsGameOn(x, y, false);		break;
+		case GameState::BOSSWIN:	BtnsBossWin(x, y, false);		break;
+		case GameState::BOSSLOSE:	BtnsBossLose(x, y, false);		break;
 		}
 	}
-	if (*StateMachine::pGameState == GameState::GAMEON)
+	if (*StateMachine::pGameState == GameState::GAMEON || *StateMachine::pGameState == GameState::BOSSFIGHT)
 	{
 // 		if ((btnState & MK_LBUTTON) != 0)
 // 		{
@@ -1605,7 +1886,7 @@ void Engine::OnMouseMove(WPARAM btnState, int x, int y)
 	mLastMousePos.y = y;
 
 	//Mouse Wrap around
-	if (*StateMachine::pGameState == GameState::GAMEON)
+	if (*StateMachine::pGameState == GameState::GAMEON || *StateMachine::pGameState == GameState::BOSSFIGHT)
 	{
 		if (x <= 3)
 		{
@@ -1642,8 +1923,10 @@ void Engine::KeyboardHandler(float dt)
 	//
 	// Control the camera.
 	//
-	if (*StateMachine::pGameState == GameState::GAMEON)
+	if (*StateMachine::pGameState == GameState::GAMEON || *StateMachine::pGameState == GameState::BOSSFIGHT)
 	{
+		mCam.mUseConstraints = true;
+
 		if (GetAsyncKeyState('W') & 0x8000)
 			mCam.Walk(mMoveSpeed*dt);
 	
@@ -1665,6 +1948,9 @@ void Engine::KeyboardHandler(float dt)
 	if (GetAsyncKeyState('3') & 0x8000)
 		mWalkCamMode = false;
 
+	}else
+	{
+		mCam.mUseConstraints = false;
 	}
 	//
 	// Reset particle systems.
@@ -1799,17 +2085,6 @@ void Engine::BtnsPaused(float x, float y, bool clicked)
 void Engine::BtnsGameOn(float x, float y, bool clicked)
 {
 	if (clicked){ SpawnProjectile(); }
-
-// 	if (InButton3D(m_ScreenWidth/2, m_ScreenHeight/2, mInvader))
-// 	{
-// 		mInvader->hovering = true;
-// 		if (clicked)
-// 		{
-// 
-// 
-// 		}
-// 	}
-// 	else{ mInvader->hovering = false; }
 }
 void Engine::BtnsWin(float x, float y, bool clicked)
 {
@@ -1833,11 +2108,23 @@ void Engine::BtnsWin(float x, float y, bool clicked)
 		if (clicked)
 		{
 			mCompBar->currProgress = 0.0f;
-			mBugBar->currProgress = 0.0f;
+			mBugBar->currProgress  = 0.0f;
 			*StateMachine::pGameState = GameState::GAMEON; ClearVectors(); ResetCamInGame();
 		}
 	}
 	else{ mRestartButt->hovering = false; }
+
+	if (InButton2D(x, y, mBossBattButt))
+	{
+		mBossBattButt->hovering = true;
+		if (clicked)
+		{
+			mCompBar->currProgress = 0.0f;
+			mBugBar->currProgress  = 0.0f;
+			*StateMachine::pGameState = GameState::BOSSFIGHT; ClearVectors(); ResetCamInGame();
+		}
+	}
+	else{ mBossBattButt->hovering = false; }
 }
 void Engine::BtnsLose(float x, float y, bool clicked)
 {
@@ -1866,6 +2153,49 @@ void Engine::BtnsLose(float x, float y, bool clicked)
 		}
 	}
 	else{ mRetryButt->hovering = false; }
+}
+void Engine::BtnsBossLose(float x, float y, bool clicked)
+{
+	if (InButton2D(x, y, mBSOD) && exitable)
+	{
+		if (clicked)
+		{
+			mCompBar->currProgress = 0.0f;
+			mBugBar->currProgress = 0.0f;
+			mWalkCamMode = false;
+			*StateMachine::pGameState = GameState::MAINMENU;
+			ResetCamMainMenu(); ClearVectors();
+			exitable = false;
+		}
+	}
+}
+void Engine::BtnsBossWin(float x, float y, bool clicked)
+{
+	if (InButton2D(x, y, mQuitButt))
+	{
+		mQuitButt->hovering = true;
+		if (clicked)
+		{
+			mCompBar->currProgress = 0.0f;
+			mBugBar->currProgress = 0.0f;
+			mWalkCamMode = false;
+			*StateMachine::pGameState = GameState::MAINMENU;
+			ResetCamMainMenu(); ClearVectors();
+		}
+	}
+	else{ mQuitButt->hovering = false; }
+
+	if (InButton2D(x, y, mRestartButt))
+	{
+		mRestartButt->hovering = true;
+		if (clicked)
+		{
+			mCompBar->currProgress = 0.0f;
+			mBugBar->currProgress = 0.0f;
+			*StateMachine::pGameState = GameState::GAMEON; ClearVectors(); ResetCamInGame();
+		}
+	}
+	else{ mRestartButt->hovering = false; }
 }
 bool Engine::InButton3D(float x, float y, Button* button)
 {
@@ -1960,9 +2290,7 @@ void Engine::SpawnBug()
 	Invader->UseTexture(mInvader4->mTexSRV);
 
 	Invader->reverseLook = true;
-
 	Invader->SetPos(outSkirtX, 30.0f, outSkirtZ);
-
 	Invader->SetGoToPoint(0.0f, 30.0f, 0.0f); // Go to Center 
 	Invader->SetSphereCollider(20.0f);
 	Invader->SetVertexOffset(mInvader->GetVertOffset());
@@ -2025,8 +2353,8 @@ void Engine::SpawnGhost()
 	outSkirtZ = mBoss->mPosition.z;
 	outSkirtY = mBoss->mPosition.y;
 
-	Button* Ghost = new Button(md3dDevice, 10.0f, 10.0f, false, true);
-
+	Button* Ghost = new Button(md3dDevice, 10.0f, 0.0f, 0.0f, false, true);
+	Ghost->reverseLook = true;
 	float num = MathHelper::RandF();
 	num > 0.80 ? Ghost->UseTexture(mGhost1->mTexSRV) :
 	num > 0.60 ? Ghost->UseTexture(mGhost2->mTexSRV) :
@@ -2034,14 +2362,17 @@ void Engine::SpawnGhost()
 	num > 0.20 ? Ghost->UseTexture(mGhost4->mTexSRV) :
 	Ghost->UseTexture(mGhost5->mTexSRV);
 
-	Ghost->SetPos(outSkirtX, outSkirtY - 15.0f, outSkirtZ);
-	Ghost->SetSphereCollider(5.0f);
+	
+
+	Ghost->SetPos(outSkirtX + MathHelper::RandF(-60.0f, 60.0f), outSkirtY - 20.0f, outSkirtZ + MathHelper::RandF(-60.0f, 60.0f));
+	Ghost->SetGoToPoint(mCam.GetPosition().x, mCam.GetPosition().y, mCam.GetPosition().z); // Go to Center 
+	Ghost->SetSphereCollider(30.0f);
 	Ghost->SetVertexOffset(mGhost1->GetVertOffset());
 	Ghost->SetIndexOffset(mGhost1->mIndexOffset);
 	Ghost->mIndexCount = mGhost1->mIndexCount;
 
-	XMVECTOR cam = XMVectorNegate(XMLoadFloat3(&mCam.GetLook()));
-	XMStoreFloat3(&Ghost->mLook, cam);
+	//XMVECTOR cam = XMVectorNegate(XMLoadFloat3(&mCam.GetLook()));
+	//XMStoreFloat3(&Ghost->mLook, cam);
 	
 	Ghost->mMeshBox = mGhost1->mMeshBox;
 	mGhosts.push_back(Ghost);

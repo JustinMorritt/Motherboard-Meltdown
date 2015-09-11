@@ -9,7 +9,9 @@ enum class GameState
 	WIN,
 	LOSE,
 	GAMEON,
-	BOSSFIGHT
+	BOSSFIGHT,
+	BOSSWIN,
+	BOSSLOSE
 };
 
 enum class GameMode

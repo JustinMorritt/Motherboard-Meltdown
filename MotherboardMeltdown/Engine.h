@@ -47,6 +47,7 @@ public:
 	void IncProgress(float dt);
 	void IncBugs(float dt);
 	void DecBugs(float dt);
+	void DecHP(float dt);
 	void ClearVectors();
 
 	//SCENE INITS
@@ -63,6 +64,8 @@ public:
 	void DrawGameOn();
 	void DrawWin();
 	void DrawLose();
+	void DrawBossWin();
+	void DrawBossLose();
 
 	//UPDATES
 	void UpdateMainMenu(float dt);
@@ -70,6 +73,10 @@ public:
 	void UpdateBugs(float dt);
 	void UpdatePickups(float dt);
 	void UpdateProjectiles(float dt);
+	void UpdateGhosts(float dt);
+	void UpdateBoss(float dt);
+	void UpdateBossWin(float dt);
+	void UpdateBossLose(float dt);
 
 	//SPAWNERS
 	void SpawnBug();
@@ -85,11 +92,19 @@ public:
 	void BtnsGameOn(float x, float y, bool clicked);
 	void BtnsWin(float x, float y, bool clicked);
 	void BtnsLose(float x, float y, bool clicked);
+	void BtnsBossLose(float x, float y, bool clicked);
+	void BtnsBossWin(float x, float y, bool clicked);
 	bool InButton3D(float sx, float sy, Button* button);
 	bool InButton2D(float sx, float sy, Button* button);
+
+	//COLLISION
 	bool CamOnPickUp(Button* pickup);
 	bool ProjectileBounds(Button* proj);
 	bool ProjectileHitBug(Button* proj);
+	bool ProjectileHitBoss(Button* proj);
+	bool ProjectileHitGhost(Button* proj);
+	bool GhostHitCam(Button* ghost);
+	bool BossHitCam(Button* ghost);
 
 private:
 	Sky* mSky;
@@ -126,6 +141,10 @@ private:
 	Button* mHardButt;
 	Button* mInsaneButt;
 	Button* mInvader;
+	Button* mHPButt;
+	Button* mBossBattButt;
+	Button* mBSOD;
+
 
 	Button* mInvader2;
 	Button* mInvader3;
@@ -167,14 +186,22 @@ private:
 	Button* mCompBarOL;
 	Button* mBugBar;
 	Button* mBugBarOL;
+	Button* mHPOL;
+	Button* mHPBAR;
 
 	//Spawn Timers
 	float spawnTimer; // Set this per second ..
+	float bossTimer;
+	float randBossTime;
+	bool toRandSpot;
+	bool toCam;
 	float bugsWorth;
+	float dmgAmount;
 	float difficultyTimer;
 	int spawnBugTime;
 	int spawnMushTime;
 	int speedBonusTime;
+	int waitToClickTime;
 
 
 	ID3D11ShaderResourceView* mFlareTexSRV;
@@ -185,13 +212,13 @@ private:
 	ParticleSystem mRain;
 
 	DirectionalLight mDirLights[3];
+	DirectionalLight mDirLights2[3];
 
 	Camera mCam;
 	Sound mSound;
 
-	//MAIN MENU STUFF
 	ID3D11ShaderResourceView* mFloorTexSRV;
-	ID3D11ShaderResourceView* mBinaryFloorSRV; //TODO: Maybe add a different material for it 
+
 
 	Material mGridMat;
 	Material mShadowMat;
@@ -205,6 +232,7 @@ private:
 	bool mWireMode;
 	bool mBFCull;
 	bool fullyLoaded;
+	bool exitable;
 
 	POINT mLastMousePos;
 
@@ -212,8 +240,6 @@ private:
 	
 	int mMoveSpeed;
 };
-
-
 
 
 #endif // Engine_h__

@@ -1,63 +1,38 @@
 #ifndef _SOUNDCLASS_H_
 #define _SOUNDCLASS_H_
 
+#include "fmod.hpp"
+#include "fmod_errors.h"
+#include "windows.h"
 
-/////////////
-// LINKING //
-/////////////
-#pragma comment(lib, "dsound.lib")
-#pragma comment(lib, "dxguid.lib")
-#pragma comment(lib, "winmm.lib")
+//		VC++ Include = \MotherboardMeltdown\Common\FMOD\inc
+//		VC++ Library = \MotherboardMeltdown\Common\FMOD\lib
+// Configuration Properties / Debugging /    *FOR .DLL*
+//  --> PATH=C:\Users\jm\Desktop\Motherboard-Meltdown\MotherboardMeltdown\Common\FMOD\lib
 
-
-//////////////
-// INCLUDES //
-//////////////
-#include <windows.h>
-#include <mmsystem.h>
-#include <dsound.h>
-#include <stdio.h>
 
 class Sound
 {
-	struct WaveHeaderType
-	{
-		char chunkId[4];
-		unsigned long chunkSize;
-		char format[4];
-		char subChunkId[4];
-		unsigned long subChunkSize;
-		unsigned short audioFormat;
-		unsigned short numChannels;
-		unsigned long sampleRate;
-		unsigned long bytesPerSecond;
-		unsigned short blockAlign;
-		unsigned short bitsPerSample;
-		char dataChunkId[4];
-		unsigned long dataSize;
-	};
-
 public:
 	Sound();
-	Sound(const Sound&);
 	~Sound();
 
-	bool Initialize(HWND);
+	void Initialize();
 	void Shutdown();
+	bool ERRCHECK(FMOD_RESULT result);
+	
+	void StreamMusic(int num);
+	void PlaySound(int num);
+	void PauseMusic();
 
 private:
-	bool InitializeDirectSound(HWND);
-	void ShutdownDirectSound();
-
-	bool LoadWaveFile(char*, IDirectSoundBuffer8**);
-	void ShutdownWaveFile(IDirectSoundBuffer8**);
-
-	bool PlayWaveFile();
-
-private:
-	IDirectSound8* m_DirectSound;
-	IDirectSoundBuffer* m_primaryBuffer;
-	IDirectSoundBuffer8* m_secondaryBuffer1;
+	FMOD::System     *system;
+	FMOD::Sound      *sound1, *sound2, *sound3, *sound, *MainSong;
+	FMOD::Channel    *channel = 0;
+	FMOD_RESULT       result;
+	unsigned int      version;
+	void             *extradriverdata = 0;
+	int               numsubsounds;
 };
 
 #endif
