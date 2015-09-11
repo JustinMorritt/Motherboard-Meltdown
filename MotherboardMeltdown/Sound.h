@@ -10,7 +10,6 @@
 // Configuration Properties / Debugging /    *FOR .DLL*
 //  --> PATH=C:\Users\jm\Desktop\Motherboard-Meltdown\MotherboardMeltdown\Common\FMOD\lib
 
-
 class Sound
 {
 public:
@@ -23,7 +22,7 @@ public:
 	
 	void StreamMusic(int num);
 	void PlaySound(int num);
-	void PauseMusic();
+	void PauseMusic(bool pause);
 
 private:
 	FMOD::System     *system;

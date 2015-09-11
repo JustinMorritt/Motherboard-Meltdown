@@ -1,5 +1,6 @@
 #include "Engine.h"
-
+//TODO ... MAY as well replace the original grib with a button .. clean up some grose code. 
+//TODO ... Get Some Cool Sound Effects And Intence BOss Music 
 
 
 Engine::Engine(HINSTANCE hInstance)
@@ -99,10 +100,6 @@ Engine::Engine(HINSTANCE hInstance)
 
 
 
-
-
-
-
 	mDirLights2[0].Ambient = XMFLOAT4(0.3f, 0.3f, 0.3f, 1.0f);
 	mDirLights2[0].Diffuse = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
 	mDirLights2[0].Specular = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -117,14 +114,6 @@ Engine::Engine(HINSTANCE hInstance)
 	mDirLights2[2].Diffuse = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 	mDirLights2[2].Specular = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
 	mDirLights2[2].Direction = XMFLOAT3(-0.57735f, -0.57735f, -0.57735f);
-
-
-
-
-
-
-
-
 
 	mShadowMat.Ambient = XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f);
 	mShadowMat.Diffuse = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.5f);
@@ -154,15 +143,13 @@ bool Engine::Init()
 {
 	if(!D3DApp::Init())	return false;
 	mSound.Initialize();
-	// Must init Effects first since InputLayouts depend on shader signatures.
-	Effects::InitAll(md3dDevice);
+	Effects::InitAll(md3dDevice);	// Must init Effects first since InputLayouts depend on shader signatures.
 	mTexMgr.Init(md3dDevice);
 	InputLayouts::InitAll(md3dDevice);
 	RenderStates::InitAll(md3dDevice);
 
 
-	//TODO:: CLEAN UP THE MODEL CLASS WITH FUNCTIONALITY
-
+//TODO:: CLEAN UP THE MODEL CLASS WITH FUNCTIONALITY
 // 	//Load Models
 // 	testModel = new BasicModel(md3dDevice, mTexMgr, "Models\\Motherboard.obj", L"Textures\\");
 // 	BasicModelInstance testInstance;
@@ -175,10 +162,6 @@ bool Engine::Init()
 // 	XMStoreFloat4x4(&testInstance.World, modelScale*modelRot*modelOffset);
 // 
 // 	mModelInstances.push_back(testInstance);
-
-
-
-
 
 
 	InitMainMenu();
@@ -1291,7 +1274,7 @@ void Engine::InitMainMenu()
 	D3D11_SUBRESOURCE_DATA iinitData;
 	iinitData.pSysMem = &indices[0];
 	HR(md3dDevice->CreateBuffer(&ibd, &iinitData, &mShapesIB));
-
+	mSound.StreamMusic(1);
 }
 void Engine::InitPaused()
 {

@@ -108,8 +108,9 @@ public:
 
 private:
 	Sky* mSky;
-	Terrain mTerrain;
 	TextureMgr mTexMgr;
+	Camera mCam;
+	Sound mSound;
 
 	ID3D11Buffer* mShapesVB;
 	ID3D11Buffer* mShapesIB;
@@ -168,7 +169,6 @@ private:
 	std::vector<BasicModelInstance> mModelInstances;
 	BasicModel* testModel;
 
-
 	//Binary Floors 
 	Button* mNorthF;
 	Button* mSouthF;
@@ -202,7 +202,7 @@ private:
 	int spawnMushTime;
 	int speedBonusTime;
 	int waitToClickTime;
-
+	int mMoveSpeed;
 
 	ID3D11ShaderResourceView* mFlareTexSRV;
 	ID3D11ShaderResourceView* mRainTexSRV;
@@ -214,11 +214,7 @@ private:
 	DirectionalLight mDirLights[3];
 	DirectionalLight mDirLights2[3];
 
-	Camera mCam;
-	Sound mSound;
-
 	ID3D11ShaderResourceView* mFloorTexSRV;
-
 
 	Material mGridMat;
 	Material mShadowMat;
@@ -237,8 +233,6 @@ private:
 	POINT mLastMousePos;
 
 	XMMATRIX mOrthoWorld;
-	
-	int mMoveSpeed;
 };
 
 
