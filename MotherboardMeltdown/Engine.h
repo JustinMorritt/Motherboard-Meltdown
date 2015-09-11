@@ -229,6 +229,7 @@ private:
 	bool mBFCull;
 	bool fullyLoaded;
 	bool exitable;
+	bool inButt;
 
 	POINT mLastMousePos;
 

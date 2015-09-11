@@ -14,6 +14,7 @@
 #include "GameTimer.h"
 #include <string>
 
+
 #define FULLSCREEN false
 
 class D3DApp

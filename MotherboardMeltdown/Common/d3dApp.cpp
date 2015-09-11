@@ -365,9 +365,10 @@ LRESULT D3DApp::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 bool D3DApp::InitMainWindow()
 {
 	int msg;
-	msg  = MessageBox(0, L"Full Screen?", L"Motherboard Meltdown!", MB_YESNO);
+	msg = MessageBox(0, L"Controls =   Move(WASD)    Shoot(LeftMouseClick)    Pause(P) \n\n\n\t\t             Full Screen?  ", L"Motherboard Meltdown!", MB_YESNO);
 	if (msg == 6){ mFullScreen = true; }
 	if (msg == 7){ mFullScreen = false; }
+	//mFullScreen = true;
 
 	WNDCLASS wc;
 	

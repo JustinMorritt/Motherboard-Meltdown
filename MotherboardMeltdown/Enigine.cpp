@@ -71,7 +71,8 @@ Engine::Engine(HINSTANCE hInstance)
 	fullyLoaded(false),
 	toRandSpot(false),
 	toCam(false),
-	exitable(false)
+	exitable(false),
+	inButt(false)
 {
 	mMainWndCaption = L"Motherboard Meltdown";
 	mEnable4xMsaa = false;
@@ -243,9 +244,13 @@ void Engine::UpdateMainMenu(float dt)
 	mSouthW->Update(mCam, dt);
 	mWestW->Update(mCam, dt);
 	mEastW->Update(mCam, dt);
+
+	if (*StateMachine::pMusicState == MusicState::MUSICON){ if  ( mSound.MusicPaused(1)){ mSound.PauseMusic(false,1); } }
+	if (*StateMachine::pMusicState == MusicState::MUSICOFF){ if (!mSound.MusicPaused(1)){ mSound.PauseMusic(true,1); }}
 }
 void Engine::UpdateGame(float dt)
 {
+	
 	(*StateMachine::pGameState == GameState::GAMEON || *StateMachine::pGameState == GameState::BOSSFIGHT) ? mCursorOn = false : mCursorOn = true;
 
 	mCompiledButt->Update(mCam, dt);
@@ -270,6 +275,11 @@ void Engine::UpdateGame(float dt)
 	{
 		if (*StateMachine::pGameState == GameState::GAMEON)
 		{
+
+			if (*StateMachine::pMusicState == MusicState::MUSICON){ if (!mSound.PlayingMusic(2)){ mSound.StreamMusic(2); }
+			if (mSound.MusicPaused(2)){ mSound.PauseMusic(false,2); }}
+
+
 			spawnBugTime++;
 			if (spawnBugTime == 1){ SpawnBug(); IncBugs(bugsWorth); spawnBugTime = 0; }
 
@@ -279,6 +289,12 @@ void Engine::UpdateGame(float dt)
 
 		if (*StateMachine::pGameState == GameState::BOSSFIGHT)
 		{
+
+			if (*StateMachine::pMusicState == MusicState::MUSICON){ if (!mSound.PlayingMusic(3)){ mSound.StreamMusic(3); }
+			if (mSound.MusicPaused(3)){ mSound.PauseMusic(false, 3); }
+			}
+
+
 			spawnBugTime++;
 			if (spawnBugTime == 1){ SpawnGhost(); spawnBugTime = 0; }
 		}
@@ -353,7 +369,9 @@ void Engine::UpdatePickups(float dt)
 		mMushrooms[i]->Yaw(dt);
 
 		mMushrooms[i]->Update(mCam, dt);
-		if (CamOnPickUp(mMushrooms[i])){ mMushrooms[i]->mDead = true; speedBonusTime += 5; } //PLAY SOUNDFX
+		if (CamOnPickUp(mMushrooms[i])){ mMushrooms[i]->mDead = true; speedBonusTime += 5; 
+		if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(5); }
+		} 
 
 		if (mMushrooms[i]->mDead)
 		{
@@ -399,7 +417,10 @@ void Engine::UpdateGhosts(float dt)
 	{
 		 mGhosts[i]->Walk(1000 * dt); 
 		 if (!ProjectileBounds(mGhosts[i])){ mGhosts[i]->mDead = true; }
-		 if (GhostHitCam(mGhosts[i])){ *StateMachine::pGameState = GameState::BOSSLOSE; /*LOSE GAME */ }
+		 if (GhostHitCam(mGhosts[i])){ *StateMachine::pGameState = GameState::BOSSLOSE; /*LOSE GAME */ 
+		 if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(3); }
+		 mSound.PauseMusic(true, 3);
+		 }
 		mGhosts[i]->Update(mCam, dt);
 		if (mGhosts[i]->mDead)
 		{
@@ -439,7 +460,9 @@ void Engine::UpdateBoss(float dt)
 	}
 	
 	mBoss->Update(mCam, dt);
-	if (BossHitCam(mBoss)){ *StateMachine::pGameState = GameState::BOSSLOSE;/*LOSE GAME */ }
+	if (BossHitCam(mBoss)){ *StateMachine::pGameState = GameState::BOSSLOSE;/*LOSE GAME */ 
+	if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(3); }mSound.PauseMusic(true, 3);
+	}
 }
 
 
@@ -488,7 +511,12 @@ void Engine::ResetCamInGame()
 void Engine::IncProgress(float dt)
 {
 	(mCompBar->currProgress < 1.0) ? mCompBar->currProgress += dt / 100 : mCompBar->currProgress = 1.0;
-	if (mCompBar->currProgress == 1.0){ *StateMachine::pGameState = GameState::WIN; waitToClickTime = 1; }
+	if (mCompBar->currProgress == 1.0){ *StateMachine::pGameState = GameState::WIN; waitToClickTime = 2; 
+	if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(4); 
+	mSound.PauseMusic(true, 2);
+	}
+	
+	}
 } 
 void Engine::IncBugs(float bug)
 {
@@ -497,7 +525,8 @@ void Engine::IncBugs(float bug)
 		mBugBar->currProgress += bug;
 		if (mBugBar->currProgress >= 1.0)
 		{
-			mBugBar->currProgress = 1.0; *StateMachine::pGameState = GameState::LOSE; waitToClickTime = 1;
+			mBugBar->currProgress = 1.0; *StateMachine::pGameState = GameState::LOSE; waitToClickTime = 2;
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(3); mSound.PauseMusic(true, 2); }
 		}
 	} 
 	
@@ -510,7 +539,10 @@ void Engine::DecBugs(float bug)
 void Engine::DecHP(float hp)
 {
 	if (mHPBAR->currProgress > 0)mHPBAR->currProgress -= hp;
-	if (mHPBAR->currProgress < 0){ mHPBAR->currProgress = 0.0f; *StateMachine::pGameState = GameState::BOSSWIN; waitToClickTime = 1; }
+	if (mHPBAR->currProgress < 0){ mHPBAR->currProgress = 0.0f; *StateMachine::pGameState = GameState::BOSSWIN; waitToClickTime = 2;
+	if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(4); }
+	mSound.PauseMusic(true, 3);
+	}
 }
 void Engine::ClearVectors()
 {
@@ -1666,7 +1698,7 @@ void Engine::DrawGameOn()
 		activeTexTech = Effects::BasicFX->Light2TexAlphaClipTech;
 		md3dImmediateContext->OMSetDepthStencilState(RenderStates::ZBufferDisabled, 0); // changing 0 means overlaping draws
 
-		if (*StateMachine::pGameState != GameState::BOSSFIGHT)
+		if (*StateMachine::pGameState == GameState::GAMEON)
 		{
 			mBugsButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
 			mCompiledButt->Draw2D(activeTexTech, md3dImmediateContext, p, mCam, mOrthoWorld);
@@ -1953,20 +1985,29 @@ void Engine::BtnsMainMenu(float x, float y, bool clicked)
 {
 	if (InButton3D(x, y, mPlayButt))
 	{	
+		
+		
+		
 		mPlayButt->hovering = true;
 		if (clicked)
 		{
+			ClearVectors();
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			*StateMachine::pGameState = GameState::GAMEON;
+			if (!mSound.MusicPaused(1)){ mSound.PauseMusic(true, 1); }
 			ResetCamInGame();
 		}
 	}
-	else{ mPlayButt->hovering = false; }
+	else{ mPlayButt->hovering = false;  }
 
 	if (InButton3D(x, y, mAboutButt))
 	{
+	
+	
 		mAboutButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			*StateMachine::pGameState = GameState::ABOUT;
 		}
 	}
@@ -1977,6 +2018,7 @@ void Engine::BtnsMainMenu(float x, float y, bool clicked)
 		mSoundButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			if (*StateMachine::pSoundState == SoundState::SOUNDON)
 			{ 
 				*StateMachine::pSoundState = SoundState::SOUNDOFF; 
@@ -1994,7 +2036,7 @@ void Engine::BtnsMainMenu(float x, float y, bool clicked)
 		mMusicButt->hovering = true;
 		if (clicked)
 		{
-			
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			if (*StateMachine::pMusicState == MusicState::MUSICON)
 			{
 				*StateMachine::pMusicState = MusicState::MUSICOFF;
@@ -2012,6 +2054,7 @@ void Engine::BtnsMainMenu(float x, float y, bool clicked)
 		mModeButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			switch (*StateMachine::pGameMode)
 			{
 			case GameMode::EASY: *StateMachine::pGameMode	= GameMode::MED;	break;
@@ -2031,6 +2074,7 @@ void Engine::BtnsAbout(float x, float y, bool clicked)
 		mBackButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			*StateMachine::pGameState = GameState::MAINMENU;
 		}
 	}
@@ -2038,12 +2082,16 @@ void Engine::BtnsAbout(float x, float y, bool clicked)
 }
 void Engine::BtnsPaused(float x, float y, bool clicked)
 {
+	if (!mSound.MusicPaused(2)){ mSound.PauseMusic(true, 2); }
 	if (InButton2D(x, y, mQuitButt))
 	{
 		mQuitButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			*StateMachine::pGameState = GameState::MAINMENU;
+			mCompBar->currProgress = 0.0f;
+			mBugBar->currProgress = 0.0f;
 			mWalkCamMode = false;
 			ResetCamMainMenu();
 			ClearVectors();
@@ -2056,6 +2104,7 @@ void Engine::BtnsPaused(float x, float y, bool clicked)
 		mRestartButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress = 0.0f;
 			*StateMachine::pGameState = GameState::GAMEON;
@@ -2076,6 +2125,7 @@ void Engine::BtnsWin(float x, float y, bool clicked)
 		mQuitButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress = 0.0f;
 			mWalkCamMode = false;
@@ -2090,6 +2140,7 @@ void Engine::BtnsWin(float x, float y, bool clicked)
 		mRestartButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress  = 0.0f;
 			*StateMachine::pGameState = GameState::GAMEON; ClearVectors(); ResetCamInGame();
@@ -2102,6 +2153,7 @@ void Engine::BtnsWin(float x, float y, bool clicked)
 		mBossBattButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(2); }
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress  = 0.0f;
 			*StateMachine::pGameState = GameState::BOSSFIGHT; ClearVectors(); ResetCamInGame();
@@ -2116,6 +2168,7 @@ void Engine::BtnsLose(float x, float y, bool clicked)
 		mQuitButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress = 0.0f;
 			mWalkCamMode = false;
@@ -2130,6 +2183,7 @@ void Engine::BtnsLose(float x, float y, bool clicked)
 		mRetryButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress = 0.0f;
 			*StateMachine::pGameState = GameState::GAMEON; ClearVectors(); ResetCamInGame();
@@ -2145,6 +2199,7 @@ void Engine::BtnsBossLose(float x, float y, bool clicked)
 		{
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress = 0.0f;
+			mBoss->currProgress = 0.0f;
 			mWalkCamMode = false;
 			*StateMachine::pGameState = GameState::MAINMENU;
 			ResetCamMainMenu(); ClearVectors();
@@ -2159,8 +2214,10 @@ void Engine::BtnsBossWin(float x, float y, bool clicked)
 		mQuitButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress = 0.0f;
+			mBoss->currProgress = 0.0f;
 			mWalkCamMode = false;
 			*StateMachine::pGameState = GameState::MAINMENU;
 			ResetCamMainMenu(); ClearVectors();
@@ -2173,8 +2230,10 @@ void Engine::BtnsBossWin(float x, float y, bool clicked)
 		mRestartButt->hovering = true;
 		if (clicked)
 		{
+			if (*StateMachine::pSoundState == SoundState::SOUNDON){ mSound.PlaySound(1); }
 			mCompBar->currProgress = 0.0f;
 			mBugBar->currProgress = 0.0f;
+			mBoss->currProgress = 0.0f;
 			*StateMachine::pGameState = GameState::GAMEON; ClearVectors(); ResetCamInGame();
 		}
 	}
